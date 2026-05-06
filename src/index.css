@@ -4,6 +4,7 @@
 /* Tell Tailwind where to scan for utility classes */
 @source "./main.tsx";
 @source "./pages/**/*.tsx";
+@source "./components/**/*.tsx";
 @source "../index.html";
 
 /* CSS Custom Highlight API styles are injected at runtime via ChatDisplay.tsx
