@@ -3,6 +3,10 @@ declare module 'virtual:skill-manager-state' {
   export const initialSkillManagerState: {
     configuredDirectories: string[]
     discoveredDirectories: string[]
+    sourceIcons: Record<string, {
+      type: 'dataUrl'
+      value: string
+    }>
     skills: Array<{
       id: string
       slug: string
@@ -11,6 +15,16 @@ declare module 'virtual:skill-manager-state' {
       content: string
       location: string
       sourceDirectory: string
+      skillDirectory: string
+      resolvedSourceDirectory: string
+      resolvedSkillDirectory: string
+      contentHash: string
+      agentId: string
+      agentName: string
+      agentIcon: {
+        type: 'dataUrl'
+        value: string
+      } | null
       metadata: Record<string, unknown>
     }>
   }

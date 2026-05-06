@@ -1,10 +1,17 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
 };
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SourceIcon {
+    #[serde(rename = "type")]
+    icon_type: String,
+    value: String,
+}
 
 #[derive(Debug, Serialize)]
 struct LocalSkill {
@@ -16,6 +23,20 @@ struct LocalSkill {
     location: String,
     #[serde(rename = "sourceDirectory")]
     source_directory: String,
+    #[serde(rename = "skillDirectory")]
+    skill_directory: String,
+    #[serde(rename = "resolvedSourceDirectory")]
+    resolved_source_directory: String,
+    #[serde(rename = "resolvedSkillDirectory")]
+    resolved_skill_directory: String,
+    #[serde(rename = "contentHash")]
+    content_hash: String,
+    #[serde(rename = "agentId")]
+    agent_id: String,
+    #[serde(rename = "agentName")]
+    agent_name: String,
+    #[serde(rename = "agentIcon")]
+    agent_icon: Option<SourceIcon>,
     metadata: Map<String, Value>,
 }
 
@@ -25,6 +46,8 @@ struct SkillManagerState {
     configured_directories: Vec<String>,
     #[serde(rename = "discoveredDirectories")]
     discovered_directories: Vec<String>,
+    #[serde(rename = "sourceIcons")]
+    source_icons: HashMap<String, SourceIcon>,
     skills: Vec<LocalSkill>,
 }
 
@@ -32,18 +55,233 @@ struct SkillManagerState {
 struct SkillManagerConfig {
     #[serde(rename = "skillDirectories")]
     skill_directories: Option<Vec<String>>,
+    #[serde(rename = "sourceIcons")]
+    source_icons: Option<HashMap<String, SourceIcon>>,
+}
+
+struct BuiltInSkillDirectory {
+    path: PathBuf,
+    agent_id: &'static str,
+    agent_name: &'static str,
 }
 
 fn home_dir() -> PathBuf {
     dirs::home_dir().unwrap_or_else(|| PathBuf::from("."))
 }
 
-fn default_skills_directory() -> PathBuf {
-    home_dir().join(".agents").join("skills")
-}
-
 fn config_path() -> PathBuf {
     home_dir().join(".agents").join("skill-manager.json")
+}
+
+fn built_in_skill_directories() -> Vec<BuiltInSkillDirectory> {
+    let home = home_dir();
+    vec![
+        BuiltInSkillDirectory {
+            path: home.join(".agents").join("skills"),
+            agent_id: "agents",
+            agent_name: "Agents",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".codex").join("skills"),
+            agent_id: "codex",
+            agent_name: "Codex",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".claude").join("skills"),
+            agent_id: "claude",
+            agent_name: "Claude",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".cursor").join("skills"),
+            agent_id: "cursor",
+            agent_name: "Cursor",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".config").join("opencode").join("skills"),
+            agent_id: "opencode",
+            agent_name: "OpenCode",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".gemini").join("antigravity").join("skills"),
+            agent_id: "antigravity",
+            agent_name: "Antigravity",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".config").join("agents").join("skills"),
+            agent_id: "amp",
+            agent_name: "Amp",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".kilocode").join("skills"),
+            agent_id: "kilo_code",
+            agent_name: "Kilo Code",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".roo").join("skills"),
+            agent_id: "roo_code",
+            agent_name: "Roo Code",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".config").join("goose").join("skills"),
+            agent_id: "goose",
+            agent_name: "Goose",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".gemini").join("skills"),
+            agent_id: "gemini",
+            agent_name: "Gemini",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".copilot").join("skills"),
+            agent_id: "github_copilot",
+            agent_name: "GitHub Copilot",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".openclaw").join("skills"),
+            agent_id: "openclaw",
+            agent_name: "OpenClaw",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".factory").join("skills"),
+            agent_id: "droid",
+            agent_name: "Droid",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".codeium").join("windsurf").join("skills"),
+            agent_id: "windsurf",
+            agent_name: "Windsurf",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".trae").join("skills"),
+            agent_id: "trae",
+            agent_name: "TRAE IDE",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".deepagents").join("agent").join("skills"),
+            agent_id: "deepagents",
+            agent_name: "Deep Agents",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".firebender").join("skills"),
+            agent_id: "firebender",
+            agent_name: "Firebender",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".augment").join("skills"),
+            agent_id: "augment",
+            agent_name: "Augment",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".bob").join("skills"),
+            agent_id: "bob",
+            agent_name: "IBM Bob",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".codebuddy").join("skills"),
+            agent_id: "codebuddy",
+            agent_name: "CodeBuddy",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".commandcode").join("skills"),
+            agent_id: "command_code",
+            agent_name: "Command Code",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".snowflake").join("cortex").join("skills"),
+            agent_id: "cortex",
+            agent_name: "Cortex Code",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".config").join("crush").join("skills"),
+            agent_id: "crush",
+            agent_name: "Crush",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".iflow").join("skills"),
+            agent_id: "iflow",
+            agent_name: "iFlow CLI",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".junie").join("skills"),
+            agent_id: "junie",
+            agent_name: "Junie",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".kiro").join("skills"),
+            agent_id: "kiro",
+            agent_name: "Kiro CLI",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".kode").join("skills"),
+            agent_id: "kode",
+            agent_name: "Kode",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".mcpjam").join("skills"),
+            agent_id: "mcpjam",
+            agent_name: "MCPJam",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".vibe").join("skills"),
+            agent_id: "mistral_vibe",
+            agent_name: "Mistral Vibe",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".mux").join("skills"),
+            agent_id: "mux",
+            agent_name: "Mux",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".neovate").join("skills"),
+            agent_id: "neovate",
+            agent_name: "Neovate",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".openhands").join("skills"),
+            agent_id: "openhands",
+            agent_name: "OpenHands",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".pi").join("agent").join("skills"),
+            agent_id: "pi",
+            agent_name: "Pi",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".pochi").join("skills"),
+            agent_id: "pochi",
+            agent_name: "Pochi",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".qoder").join("skills"),
+            agent_id: "qoder",
+            agent_name: "Qoder",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".qwen").join("skills"),
+            agent_id: "qwen_code",
+            agent_name: "Qwen Code",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".trae-cn").join("skills"),
+            agent_id: "trae_cn",
+            agent_name: "TRAE CN",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".zencoder").join("skills"),
+            agent_id: "zencoder",
+            agent_name: "Zencoder",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".adal").join("skills"),
+            agent_id: "adal",
+            agent_name: "AdaL",
+        },
+        BuiltInSkillDirectory {
+            path: home.join(".hermes").join("skills"),
+            agent_id: "hermes",
+            agent_name: "Hermes",
+        },
+    ]
 }
 
 fn expand_home_directory(input: &str) -> PathBuf {
@@ -86,40 +324,154 @@ fn normalize_configured_directories(directories: Vec<String>) -> Vec<String> {
     normalized
 }
 
-fn read_configured_directories() -> Vec<String> {
+fn existing_built_in_directories() -> Vec<String> {
+    built_in_skill_directories()
+        .into_iter()
+        .filter(|directory| directory.path.is_dir())
+        .map(|directory| directory.path.to_string_lossy().to_string())
+        .collect()
+}
+
+fn read_skill_manager_config() -> SkillManagerConfig {
     let path = config_path();
     if !path.exists() {
-        return vec![default_skills_directory().to_string_lossy().to_string()];
+        return SkillManagerConfig {
+            skill_directories: None,
+            source_icons: None,
+        };
     }
 
     let Ok(raw) = fs::read_to_string(path) else {
-        return vec![default_skills_directory().to_string_lossy().to_string()];
+        return SkillManagerConfig {
+            skill_directories: None,
+            source_icons: None,
+        };
     };
 
     let Ok(config) = serde_json::from_str::<SkillManagerConfig>(&raw) else {
-        return vec![default_skills_directory().to_string_lossy().to_string()];
+        return SkillManagerConfig {
+            skill_directories: None,
+            source_icons: None,
+        };
     };
 
-    let normalized = normalize_configured_directories(config.skill_directories.unwrap_or_default());
+    config
+}
+
+fn read_configured_directories() -> Vec<String> {
+    let config = read_skill_manager_config();
+    let mut directories = config.skill_directories.unwrap_or_default();
+    directories.extend(existing_built_in_directories());
+    normalize_configured_directories(directories)
+}
+
+fn normalize_source_icons(
+    source_icons: HashMap<String, SourceIcon>,
+) -> HashMap<String, SourceIcon> {
+    let mut normalized = HashMap::new();
+
+    for (directory, icon) in source_icons {
+        if icon.icon_type != "dataUrl" || icon.value.trim().is_empty() {
+            continue;
+        }
+
+        let directories = normalize_configured_directories(vec![directory]);
+        if let Some(normalized_directory) = directories.first() {
+            normalized.insert(normalized_directory.clone(), icon);
+        }
+    }
+
     normalized
 }
 
-fn write_configured_directories(directories: Vec<String>) -> Result<(), String> {
+fn read_source_icons() -> HashMap<String, SourceIcon> {
+    normalize_source_icons(read_skill_manager_config().source_icons.unwrap_or_default())
+}
+
+fn write_skill_manager_config(
+    skill_directories: Vec<String>,
+    source_icons: HashMap<String, SourceIcon>,
+) -> Result<(), String> {
     let path = config_path();
-    let normalized = normalize_configured_directories(directories);
 
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
 
-    let payload = serde_json::json!({ "skillDirectories": normalized });
+    let payload = serde_json::json!({
+        "skillDirectories": skill_directories,
+        "sourceIcons": source_icons,
+    });
     let content = serde_json::to_string_pretty(&payload).map_err(|error| error.to_string())?;
     fs::write(path, content).map_err(|error| error.to_string())
 }
 
-fn collect_skill_files(directory: &Path, source_directory: &Path, skill_files: &mut Vec<(PathBuf, PathBuf)>) {
+fn write_configured_directories(directories: Vec<String>) -> Result<(), String> {
+    let normalized = normalize_configured_directories(directories);
+    write_skill_manager_config(normalized, read_source_icons())
+}
+
+fn write_source_icon(directory: String, icon: Option<SourceIcon>) -> Result<(), String> {
+    let normalized_directories = normalize_configured_directories(vec![directory]);
+    let Some(normalized_directory) = normalized_directories.first() else {
+        return Ok(());
+    };
+    let mut source_icons = read_source_icons();
+
+    if let Some(icon) = icon {
+        if icon.icon_type == "dataUrl" && !icon.value.trim().is_empty() {
+            source_icons.insert(normalized_directory.clone(), icon);
+        }
+    } else {
+        source_icons.remove(normalized_directory);
+    }
+
+    write_skill_manager_config(read_configured_directories(), source_icons)
+}
+
+fn get_agent_info_for_directory(directory: &Path) -> (String, String) {
+    let normalized_directory = directory.to_string_lossy().to_string();
+    let mut built_ins = built_in_skill_directories();
+    built_ins.sort_by(|left, right| {
+        right
+            .path
+            .to_string_lossy()
+            .len()
+            .cmp(&left.path.to_string_lossy().len())
+    });
+
+    for built_in in built_ins {
+        let built_in_path = built_in.path.to_string_lossy().to_string();
+        if normalized_directory == built_in_path
+            || normalized_directory.starts_with(&format!("{}/", built_in_path))
+        {
+            return (
+                built_in.agent_id.to_string(),
+                built_in.agent_name.to_string(),
+            );
+        }
+    }
+
+    ("unknown".to_string(), "自定义来源".to_string())
+}
+
+fn collect_skill_files(
+    directory: &Path,
+    source_directory: &Path,
+    skill_files: &mut Vec<(PathBuf, PathBuf)>,
+    active_directories: &mut HashSet<PathBuf>,
+) {
     let ignored = ["cache", "logs", "scenarios", ".skills-manager"];
+    let resolved_directory = directory
+        .canonicalize()
+        .unwrap_or_else(|_| directory.to_path_buf());
+
+    if !active_directories.insert(resolved_directory.clone()) {
+        return;
+    }
+
     let Ok(entries) = fs::read_dir(directory) else {
+        active_directories.remove(&resolved_directory);
         return;
     };
 
@@ -134,7 +486,12 @@ fn collect_skill_files(directory: &Path, source_directory: &Path, skill_files: &
 
         if file_type.is_dir() {
             if !ignored.contains(&entry_name.as_ref()) {
-                collect_skill_files(&entry_path, source_directory, skill_files);
+                collect_skill_files(
+                    &entry_path,
+                    source_directory,
+                    skill_files,
+                    active_directories,
+                );
             }
             continue;
         }
@@ -143,7 +500,12 @@ fn collect_skill_files(directory: &Path, source_directory: &Path, skill_files: &
             if let Ok(metadata) = fs::metadata(&entry_path) {
                 if metadata.is_dir() {
                     if !ignored.contains(&entry_name.as_ref()) {
-                        collect_skill_files(&entry_path, source_directory, skill_files);
+                        collect_skill_files(
+                            &entry_path,
+                            source_directory,
+                            skill_files,
+                            active_directories,
+                        );
                     }
                     continue;
                 }
@@ -154,6 +516,8 @@ fn collect_skill_files(directory: &Path, source_directory: &Path, skill_files: &
             skill_files.push((entry_path, source_directory.to_path_buf()));
         }
     }
+
+    active_directories.remove(&resolved_directory);
 }
 
 fn yaml_to_json(value: serde_yaml::Value) -> Value {
@@ -163,9 +527,23 @@ fn yaml_to_json(value: serde_yaml::Value) -> Value {
     }
 }
 
-fn parse_skill_file(path: &Path) -> Option<(Map<String, Value>, String)> {
+fn stable_content_hash(input: &str) -> String {
+    let mut hash: u32 = 0x811c9dc5;
+
+    for byte in input.as_bytes() {
+        hash ^= *byte as u32;
+        hash = hash.wrapping_mul(0x01000193);
+    }
+
+    format!("{hash:08x}")
+}
+
+fn parse_skill_file(path: &Path) -> Option<(Map<String, Value>, String, String)> {
     let source = fs::read_to_string(path).ok()?;
-    let trimmed = source.strip_prefix("---\n").or_else(|| source.strip_prefix("---\r\n"))?;
+    let content_hash = stable_content_hash(&source);
+    let trimmed = source
+        .strip_prefix("---\n")
+        .or_else(|| source.strip_prefix("---\r\n"))?;
     let delimiter = if let Some(index) = trimmed.find("\n---\n") {
         (index, 5)
     } else if let Some(index) = trimmed.find("\r\n---\r\n") {
@@ -179,26 +557,29 @@ fn parse_skill_file(path: &Path) -> Option<(Map<String, Value>, String)> {
     let yaml = serde_yaml::from_str::<serde_yaml::Value>(frontmatter).ok()?;
     let metadata = yaml_to_json(yaml).as_object().cloned().unwrap_or_default();
 
-    Some((metadata, content.trim().to_string()))
+    Some((metadata, content.trim().to_string(), content_hash))
 }
 
 fn value_string(metadata: &Map<String, Value>, key: &str) -> Option<String> {
-    metadata.get(key)?.as_str().map(|value| value.trim().to_string())
+    metadata
+        .get(key)?
+        .as_str()
+        .map(|value| value.trim().to_string())
 }
 
 #[tauri::command]
 fn load_skill_manager_state() -> SkillManagerState {
     let configured_directories = read_configured_directories();
+    let source_icons = read_source_icons();
     let mut skill_files = Vec::new();
 
     for configured_directory in &configured_directories {
         let path = PathBuf::from(configured_directory);
         if path.is_dir() {
-            collect_skill_files(&path, &path, &mut skill_files);
+            collect_skill_files(&path, &path, &mut skill_files, &mut HashSet::new());
         }
     }
 
-    let mut seen_skill_directories = HashSet::new();
     let mut discovered_directories = HashSet::new();
     let mut skills = Vec::new();
 
@@ -214,24 +595,33 @@ fn load_skill_manager_state() -> SkillManagerState {
             .canonicalize()
             .unwrap_or_else(|_| source_directory.clone());
 
-        let skill_directory_string = resolved_skill_directory.to_string_lossy().to_string();
-        if !seen_skill_directories.insert(skill_directory_string.clone()) {
-            continue;
-        }
-
-        let source_directory_string = resolved_source_directory.to_string_lossy().to_string();
+        let skill_directory_string = skill_directory.to_string_lossy().to_string();
+        let source_directory_string = source_directory.to_string_lossy().to_string();
+        let resolved_skill_directory_string =
+            resolved_skill_directory.to_string_lossy().to_string();
+        let resolved_source_directory_string =
+            resolved_source_directory.to_string_lossy().to_string();
+        let (agent_id, agent_name) = get_agent_info_for_directory(&source_directory);
+        let agent_icon = source_icons
+            .get(&source_directory_string)
+            .or_else(|| source_icons.get(&resolved_source_directory_string))
+            .cloned();
         discovered_directories.insert(source_directory_string.clone());
 
-        let Some((metadata, content)) = parse_skill_file(&skill_file) else {
+        let Some((metadata, content, content_hash)) = parse_skill_file(&skill_file) else {
             continue;
         };
 
-        let location = resolved_skill_directory
-            .strip_prefix(&resolved_source_directory)
+        let location = skill_directory
+            .strip_prefix(&source_directory)
             .ok()
             .and_then(|path| {
                 let value = path.to_string_lossy().trim_start_matches('/').to_string();
-                if value.is_empty() { None } else { Some(value) }
+                if value.is_empty() {
+                    None
+                } else {
+                    Some(value)
+                }
             })
             .unwrap_or_else(|| skill_directory_string.clone());
 
@@ -246,6 +636,13 @@ fn load_skill_manager_state() -> SkillManagerState {
             content,
             location,
             source_directory: source_directory_string,
+            skill_directory: skill_directory_string,
+            resolved_source_directory: resolved_source_directory_string,
+            resolved_skill_directory: resolved_skill_directory_string,
+            content_hash,
+            agent_id,
+            agent_name,
+            agent_icon,
             metadata,
         });
     }
@@ -258,6 +655,7 @@ fn load_skill_manager_state() -> SkillManagerState {
     SkillManagerState {
         configured_directories,
         discovered_directories,
+        source_icons,
         skills,
     }
 }
@@ -268,6 +666,15 @@ fn save_configured_directories(directories: Vec<String>) -> Result<SkillManagerS
     Ok(load_skill_manager_state())
 }
 
+#[tauri::command]
+fn save_source_icon(
+    directory: String,
+    icon: Option<SourceIcon>,
+) -> Result<SkillManagerState, String> {
+    write_source_icon(directory, icon)?;
+    Ok(load_skill_manager_state())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -275,6 +682,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             load_skill_manager_state,
             save_configured_directories,
+            save_source_icon,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Skill Studio")
