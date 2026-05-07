@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { AgentIcon } from '../../skill-manager/agentInfo'
 import { isRealSkillSource } from '../../skill-manager/skillGrouping'
-import { type Skill } from '../../skill-manager/types'
+import { type DirectoryOpenTarget, type Skill } from '../../skill-manager/types'
 import { DefinitionTable } from './DefinitionTable'
+import { SkillSourceActions, SkillSourceRemoveButton } from './SkillSourceActions'
 
 function formatValue(value: unknown) {
   if (value === null || value === undefined || value === '') {
@@ -66,12 +67,14 @@ function buildSourceRows(skill: Skill) {
         </span>
       ),
     },
-    { label: '来源类型', value: isSoftLinkSource ? '软链接' : '真实文件' },
     { label: '扫描目录', value: skill.sourceDirectory },
     { label: 'Skill 目录', value: skill.skillDirectory },
     { label: '相对位置', value: skill.location },
     ...(isSoftLinkSource
-      ? [{ label: '真实位置', value: skill.resolvedSkillDirectory }]
+      ? [
+          { label: '来源状态', value: '软链接' },
+          { label: '真实位置', value: skill.resolvedSkillDirectory },
+        ]
       : []),
     { label: '内容指纹', value: skill.contentHash },
   ]
@@ -83,8 +86,51 @@ export function SkillMetadataTable({ skill }: { skill: Skill }) {
   return <DefinitionTable rows={rows} />
 }
 
-export function SkillSourceTable({ skill }: { skill: Skill }) {
+export function SkillSourceTable({
+  openDirectoryTargets,
+  skill,
+  sourceCount,
+  onRemoveSource,
+}: {
+  openDirectoryTargets: DirectoryOpenTarget[]
+  skill: Skill
+  sourceCount: number
+  onRemoveSource: (skill: Skill) => Promise<void>
+}) {
   const rows = useMemo(() => buildSourceRows(skill), [skill])
 
-  return <DefinitionTable rows={rows} />
+  return (
+    <div className="relative z-30 rounded-[8px] border border-border/50 bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-border/50 px-3 py-2">
+        <div className="min-w-0">
+          <p className="text-[12px] font-medium text-foreground/68">当前来源</p>
+          <p className="mt-0.5 truncate text-[11px] text-foreground/38">{skill.skillDirectory}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <SkillSourceRemoveButton
+            skill={skill}
+            sourceCount={sourceCount}
+            onRemoveSource={onRemoveSource}
+          />
+          <SkillSourceActions
+            openDirectoryTargets={openDirectoryTargets}
+            skill={skill}
+          />
+        </div>
+      </div>
+      <dl className="divide-y divide-border/50">
+        {rows.map((row) => (
+          <div
+            className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 px-3 py-2 sm:grid-cols-[96px_minmax(0,1fr)]"
+            key={row.label}
+          >
+            <dt className="text-[12px] text-foreground/48">{row.label}</dt>
+            <dd className="min-w-0 whitespace-pre-wrap break-words text-[12px] text-foreground/84">
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
 }

@@ -935,6 +935,89 @@ fn open_directory_with_target(directory: &Path, target: &str) -> Result<(), Stri
     Err("无法找到打开应用。".to_string())
 }
 
+fn ensure_skill_source_can_be_changed(skill_directory: &Path) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(skill_directory)
+        .map_err(|error| format!("来源不存在或无法访问：{error}"))?;
+
+    if !metadata.is_dir() && !metadata.file_type().is_symlink() {
+        return Err("目标不是 skill 来源目录。".to_string());
+    }
+
+    if !skill_directory.join("SKILL.md").is_file() {
+        return Err("只允许处理包含 SKILL.md 的 skill 来源。".to_string());
+    }
+
+    let Some(parent) = skill_directory.parent() else {
+        return Err("无法确认来源所在目录。".to_string());
+    };
+    let parent = parent
+        .canonicalize()
+        .map_err(|error| format!("无法确认来源所在目录：{error}"))?;
+    let skill_directory_canonical = skill_directory.canonicalize().ok();
+
+    for configured_directory in read_configured_directories() {
+        let configured_path = PathBuf::from(configured_directory);
+        let Ok(configured_path) = configured_path.canonicalize() else {
+            continue;
+        };
+
+        if skill_directory_canonical
+            .as_ref()
+            .is_some_and(|path| path == &configured_path)
+        {
+            return Err("这个来源就是扫描根目录，请先从来源设置中移除。".to_string());
+        }
+
+        if parent.starts_with(&configured_path) {
+            return Ok(());
+        }
+    }
+
+    Err("只允许处理当前已配置扫描目录中的来源。".to_string())
+}
+
+fn unique_trash_path(trash_directory: &Path, file_name: &str) -> PathBuf {
+    let original = trash_directory.join(file_name);
+    if !original.exists() {
+        return original;
+    }
+
+    let file_path = Path::new(file_name);
+    let stem = file_path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or(file_name);
+    let extension = file_path.extension().and_then(|value| value.to_str());
+
+    for index in 1.. {
+        let next_name = if let Some(extension) = extension {
+            format!("{stem} {index}.{extension}")
+        } else {
+            format!("{stem} {index}")
+        };
+        let candidate = trash_directory.join(next_name);
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+
+    original
+}
+
+fn move_source_to_trash(skill_directory: &Path) -> Result<(), String> {
+    let file_name = skill_directory
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| "来源目录名称不可用。".to_string())?;
+    let trash_directory = home_dir().join(".Trash");
+    fs::create_dir_all(&trash_directory)
+        .map_err(|error| format!("无法访问系统废纸篓：{error}"))?;
+    let destination = unique_trash_path(&trash_directory, file_name);
+
+    fs::rename(skill_directory, &destination)
+        .map_err(|error| format!("移动到废纸篓失败：{error}"))
+}
+
 fn get_agent_info_for_directory(directory: &Path) -> (String, String) {
     let normalized_directory = directory.to_string_lossy().to_string();
     let mut built_ins = built_in_skill_directories();
@@ -1197,6 +1280,29 @@ fn open_skill_directory(directory: String, target: String) -> Result<(), String>
 }
 
 #[tauri::command]
+fn remove_skill_source(skill_directory: String) -> Result<SkillManagerState, String> {
+    let normalized_directories = normalize_configured_directories(vec![skill_directory]);
+    let Some(normalized_directory) = normalized_directories.first() else {
+        return Err("目录不能为空。".to_string());
+    };
+    let skill_directory = Path::new(normalized_directory);
+
+    ensure_skill_source_can_be_changed(skill_directory)?;
+
+    let metadata = fs::symlink_metadata(skill_directory)
+        .map_err(|error| format!("来源不存在或无法访问：{error}"))?;
+
+    if metadata.file_type().is_symlink() {
+        fs::remove_file(skill_directory)
+            .map_err(|error| format!("移除软链接失败：{error}"))?;
+    } else {
+        move_source_to_trash(skill_directory)?;
+    }
+
+    Ok(load_skill_manager_state())
+}
+
+#[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
     let url = url.trim();
     if !is_allowed_external_url(url) {
@@ -1233,6 +1339,7 @@ pub fn run() {
             save_configured_directories,
             save_source_icon,
             open_skill_directory,
+            remove_skill_source,
             open_external_url,
         ])
         .run(tauri::generate_context!())

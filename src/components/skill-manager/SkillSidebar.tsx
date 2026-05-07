@@ -28,7 +28,7 @@ export function SkillSidebar({
     <aside className="flex h-full flex-col overflow-hidden rounded-[8px] bg-white shadow-minimal">
       <div className="border-b border-border/50 px-4 py-4">
         <div className="flex items-end justify-between gap-3">
-          <h1 className="text-[14px] font-semibold text-foreground">所有技能</h1>
+          <h1 className="text-[14px] font-semibold text-foreground">技能库</h1>
           <span className="text-[12px] text-foreground/45">
             {filteredSkillGroups.length === skillGroups.length
               ? `${skillGroups.length} 个`
@@ -81,8 +81,12 @@ export function SkillSidebar({
                           <h2 className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground">
                             {group.name}
                           </h2>
-                          {group.sourceCount > 1 ? (
+                          {group.variantCount > 1 ? (
                             <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_10%,white)] px-2 py-0.5 text-[10px] font-medium text-accent">
+                              {group.variantCount} 版本
+                            </span>
+                          ) : group.sourceCount > 1 ? (
+                            <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--foreground)_4%,white)] px-2 py-0.5 text-[10px] font-medium text-foreground/48">
                               {group.sourceCount} 来源
                             </span>
                           ) : null}

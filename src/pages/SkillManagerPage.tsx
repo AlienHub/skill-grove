@@ -9,11 +9,13 @@ import {
   fetchSkillManagerState,
   installUpdateAndRelaunch,
   openExternalUrl,
+  removeSkillSource,
   saveConfiguredDirectories,
   saveSourceIcon,
 } from '../skill-manager/api'
 import { buildSkillGroups } from '../skill-manager/skillGrouping'
 import {
+  type Skill,
   type SkillGroup,
   type SkillManagerState,
   type SourceIcon,
@@ -208,6 +210,11 @@ export function SkillManagerPage() {
     setSelectedSkillId(group.primarySkill.id)
   }
 
+  const handleRemoveSkillSource = useCallback(async (skill: Skill) => {
+    const nextState = await removeSkillSource(skill.skillDirectory)
+    setSkillState(nextState)
+  }, [])
+
   return (
     <div className="h-screen overflow-hidden bg-background text-[14px] text-foreground">
       <main className="mx-auto h-screen max-w-[1440px] px-4 py-5 sm:px-6">
@@ -257,6 +264,7 @@ export function SkillManagerPage() {
               openDirectoryTargets={skillState.openDirectoryTargets}
               selectedSkill={selectedSkill}
               selectedSkillGroup={selectedSkillGroup}
+              onRemoveSource={handleRemoveSkillSource}
               onSelectSkill={setSelectedSkillId}
             />
           ) : null}

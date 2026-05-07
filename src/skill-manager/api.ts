@@ -68,6 +68,15 @@ function preferredReleaseAsset(assets: GitHubReleaseAsset[]) {
   return supportedAssets.find((asset) => asset.name.toLowerCase().endsWith('.dmg')) ?? supportedAssets[0] ?? null
 }
 
+async function responseError(response: Response, fallback: string) {
+  try {
+    const body = (await response.json()) as { error?: unknown }
+    return typeof body.error === 'string' && body.error.trim() ? body.error.trim() : fallback
+  } catch {
+    return fallback
+  }
+}
+
 export async function fetchSkillManagerState() {
   if ('__TAURI_INTERNALS__' in window) {
     return await invoke<SkillManagerState>('load_skill_manager_state')
@@ -138,6 +147,26 @@ export async function openSkillDirectory(directory: string, target: OpenDirector
   if (!response.ok) {
     throw new Error('Failed to open directory')
   }
+}
+
+export async function removeSkillSource(skillDirectory: string) {
+  if ('__TAURI_INTERNALS__' in window) {
+    return await invoke<SkillManagerState>('remove_skill_source', { skillDirectory })
+  }
+
+  const response = await fetch(`${skillManagerApiBase}/remove-source`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ skillDirectory }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, 'Failed to remove source'))
+  }
+
+  return (await response.json()) as SkillManagerState
 }
 
 export async function openExternalUrl(url: string) {

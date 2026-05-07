@@ -7,11 +7,14 @@ import { spawnSync } from 'child_process'
 import { createHash } from 'crypto'
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from 'fs'
 import { homedir, tmpdir } from 'os'
@@ -578,6 +581,115 @@ function getAgentInfoForDirectory(directory: string) {
   }
 }
 
+function ensureSkillSourceCanBeChanged(skillDirectory: string) {
+  let stats
+  try {
+    stats = lstatSync(skillDirectory)
+  } catch (error) {
+    throw new Error(`来源不存在或无法访问：${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  if (!stats.isDirectory() && !stats.isSymbolicLink()) {
+    throw new Error('目标不是 skill 来源目录。')
+  }
+
+  if (!existsSync(resolve(skillDirectory, 'SKILL.md'))) {
+    throw new Error('只允许处理包含 SKILL.md 的 skill 来源。')
+  }
+
+  const parentDirectory = dirname(skillDirectory)
+  let resolvedParentDirectory: string
+  try {
+    resolvedParentDirectory = realpathSync(parentDirectory)
+  } catch (error) {
+    throw new Error(`无法确认来源所在目录：${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  let resolvedSkillDirectory: string | null = null
+  try {
+    resolvedSkillDirectory = realpathSync(skillDirectory)
+  } catch {
+    resolvedSkillDirectory = null
+  }
+
+  for (const configuredDirectory of readConfiguredDirectories()) {
+    let resolvedConfiguredDirectory: string
+    try {
+      resolvedConfiguredDirectory = realpathSync(configuredDirectory)
+    } catch {
+      continue
+    }
+
+    if (resolvedSkillDirectory === resolvedConfiguredDirectory) {
+      throw new Error('这个来源就是扫描根目录，请先从来源设置中移除。')
+    }
+
+    if (
+      resolvedParentDirectory === resolvedConfiguredDirectory ||
+      resolvedParentDirectory.startsWith(`${resolvedConfiguredDirectory}/`)
+    ) {
+      return stats
+    }
+  }
+
+  throw new Error('只允许处理当前已配置扫描目录中的来源。')
+}
+
+function uniqueTrashPath(fileName: string) {
+  const trashDirectory = resolve(homedir(), '.Trash')
+  mkdirSync(trashDirectory, { recursive: true })
+  const original = resolve(trashDirectory, fileName)
+  if (!existsSync(original)) {
+    return original
+  }
+
+  const extensionIndex = fileName.lastIndexOf('.')
+  const hasExtension = extensionIndex > 0
+  const stem = hasExtension ? fileName.slice(0, extensionIndex) : fileName
+  const extension = hasExtension ? fileName.slice(extensionIndex) : ''
+
+  for (let index = 1; ; index += 1) {
+    const candidate = resolve(trashDirectory, `${stem} ${index}${extension}`)
+    if (!existsSync(candidate)) {
+      return candidate
+    }
+  }
+}
+
+function moveSourceToTrash(skillDirectory: string) {
+  const fileName = skillDirectory.split('/').filter(Boolean).at(-1)
+  if (!fileName) {
+    throw new Error('来源目录名称不可用。')
+  }
+
+  try {
+    renameSync(skillDirectory, uniqueTrashPath(fileName))
+  } catch (error) {
+    throw new Error(`移动到废纸篓失败：${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+function removeSkillSourceForApi(skillDirectory: string) {
+  const [normalizedDirectory] = normalizeConfiguredDirectories([skillDirectory])
+  if (!normalizedDirectory) {
+    throw new Error('目录不能为空。')
+  }
+
+  const stats = ensureSkillSourceCanBeChanged(normalizedDirectory)
+
+  if (stats.isSymbolicLink()) {
+    try {
+      unlinkSync(normalizedDirectory)
+    } catch (error) {
+      throw new Error(`移除软链接失败：${error instanceof Error ? error.message : String(error)}`)
+    }
+  } else {
+    moveSourceToTrash(normalizedDirectory)
+  }
+
+  return loadSkillManagerState()
+}
+
 function stableContentHash(input: string) {
   let hash = 0x811c9dc5
 
@@ -846,6 +958,24 @@ function installSkillManagerApi(server: ViteDevServer) {
       return
     }
 
+    if (url === `${SKILL_MANAGER_API_BASE}/remove-source` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+
+        sendJson(res, 200, removeSkillSourceForApi(body.skillDirectory))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to remove source',
+        })
+      }
+
+      return
+    }
+
     next()
   })
 }
@@ -925,6 +1055,24 @@ function installSkillManagerPreviewApi(server: PreviewServer) {
       } catch (error) {
         sendJson(res, 400, {
           error: error instanceof Error ? error.message : 'Failed to open directory',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/remove-source` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+
+        sendJson(res, 200, removeSkillSourceForApi(body.skillDirectory))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to remove source',
         })
       }
 

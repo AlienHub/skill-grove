@@ -16,6 +16,10 @@ export function getSourceTypeLabel(skill: Skill) {
   return '真实文件'
 }
 
+export function getVisibleSourceTypeLabel(skill: Skill) {
+  return isRealSkillSource(skill) ? null : getSourceTypeLabel(skill)
+}
+
 function getSkillVariantKey(skill: Skill) {
   return skill.contentHash || skill.resolvedSkillDirectory || skill.skillDirectory || skill.id
 }
@@ -57,20 +61,11 @@ export function describeSkillVariant(variant: SkillVariant) {
 
 export function describeSkillGroup(group: SkillGroup) {
   if (group.variantCount > 1) {
-    return `${group.variantCount} 个变体 · ${group.sourceCount} 个来源`
+    return `${group.variantCount} 个内容版本 · ${group.sourceCount} 个来源`
   }
 
   if (group.sourceCount > 1) {
-    return describeSkillVariant(group.variants[0] ?? {
-      id: group.id,
-      skills: group.skills,
-      primarySkill: group.primarySkill,
-      relationship: 'same-content',
-      resolvedSkillDirectory: group.primarySkill.resolvedSkillDirectory,
-      hasRealSource: false,
-      realFileCount: group.skills.length,
-      softLinkCount: 0,
-    })
+    return `${group.sourceCount} 个来源 · 内容一致`
   }
 
   return group.primarySkill.location
