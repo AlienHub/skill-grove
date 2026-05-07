@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { openSkillDirectory } from '../../skill-manager/api'
+import { useAppPreferences } from '../../skill-manager/preferences'
 import { type DirectoryOpenTarget } from '../../skill-manager/types'
 
 const CATEGORY_LABELS: Record<string, string> = {
-  editor: '编辑器',
-  'file-manager': '文件管理器',
+  editor: 'source.categoryEditor',
+  'file-manager': 'source.categoryFileManager',
   ide: 'IDE',
 }
 
@@ -66,6 +67,7 @@ export function SkillDirectoryActions({
   directory: string
   targets: DirectoryOpenTarget[]
 }) {
+  const { t } = useAppPreferences()
   const containerRef = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null)
@@ -107,7 +109,7 @@ export function SkillDirectoryActions({
 
     void openSkillDirectory(directory, target.id)
       .catch(() => {
-        setFeedbackMessage('打开目录失败，请确认应用可用。')
+        setFeedbackMessage(t('source.openSkillDirectoryFailed'))
       })
   }
 
@@ -117,9 +119,9 @@ export function SkillDirectoryActions({
 
   return (
     <div className="relative" ref={containerRef}>
-      <div className="flex overflow-hidden rounded-[8px] border border-border/50 bg-white shadow-minimal-flat">
+      <div className="flex overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface)] shadow-minimal-flat">
         <button
-          aria-label={`使用 ${defaultTarget.label} 打开 skill 目录`}
+          aria-label={t('source.openWith', { target: defaultTarget.label })}
           className="flex size-8 cursor-pointer items-center justify-center transition-colors hover:bg-foreground/5"
           onClick={() => handleOpenDirectory(defaultTarget)}
           title={defaultTarget.label}
@@ -129,13 +131,13 @@ export function SkillDirectoryActions({
         </button>
         <button
           aria-expanded={isOpen}
-          aria-label="选择打开方式"
+          aria-label={t('source.chooseOpenTarget')}
           className="flex h-8 w-6 cursor-pointer items-center justify-center border-l border-border/45 text-foreground/42 transition-colors hover:bg-foreground/5 hover:text-foreground"
           onClick={() => {
             setFeedbackMessage(null)
             setIsOpen((value) => !value)
           }}
-          title="选择打开方式"
+          title={t('source.chooseOpenTarget')}
           type="button"
         >
           <ChevronDownIcon size={13} />
@@ -143,11 +145,17 @@ export function SkillDirectoryActions({
       </div>
 
       {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-[410] w-[190px] overflow-hidden rounded-[8px] border border-border/55 bg-white py-1 shadow-minimal">
+        <div className="absolute right-0 top-[calc(100%+6px)] z-[410] w-[190px] overflow-hidden rounded-[8px] border border-border/55 bg-[var(--surface)] py-1 shadow-minimal">
           {groupedTargets.map((group, groupIndex) => (
             <div className={groupIndex > 0 ? 'border-t border-border/40 pt-1' : undefined} key={group.category}>
               <div className="px-3 pb-1 pt-1.5 text-[10px] font-medium text-foreground/36">
-                {CATEGORY_LABELS[group.category] ?? group.category}
+                {group.category === 'editor'
+                  ? t('source.categoryEditor')
+                  : group.category === 'file-manager'
+                    ? t('source.categoryFileManager')
+                    : group.category === 'ide'
+                      ? t('source.categoryIde')
+                      : CATEGORY_LABELS[group.category] ?? group.category}
               </div>
               {group.targets.map((target) => (
                 <button
@@ -168,7 +176,7 @@ export function SkillDirectoryActions({
       ) : null}
 
       {feedbackMessage ? (
-        <p className="absolute right-0 top-[calc(100%+6px)] z-[409] w-[220px] rounded-[8px] border border-border/55 bg-white px-3 py-2 text-[12px] text-foreground/56 shadow-minimal">
+        <p className="absolute right-0 top-[calc(100%+6px)] z-[409] w-[220px] rounded-[8px] border border-border/55 bg-[var(--surface)] px-3 py-2 text-[12px] text-foreground/56 shadow-minimal">
           {feedbackMessage}
         </p>
       ) : null}

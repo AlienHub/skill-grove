@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { AgentIcon, getAgentInfoFromDirectory } from '../../skill-manager/agentInfo'
+import { displayAgentName } from '../../skill-manager/display'
 import {
   normalizeSelectedDirectoryPath,
   readFileAsDataUrl,
 } from '../../skill-manager/fileSelection'
+import { useAppPreferences } from '../../skill-manager/preferences'
 import { type BuiltInDirectoryState, type SourceIcon } from '../../skill-manager/types'
 
 export function SkillDirectoryConfig({
@@ -34,12 +36,13 @@ export function SkillDirectoryConfig({
   onSelectDirectory: (directory: string) => void
   onSetFeedbackMessage: (message: string) => void
 }) {
+  const { t } = useAppPreferences()
   const directoryInputRef = useRef<HTMLInputElement>(null)
   const iconInputRef = useRef<HTMLInputElement>(null)
   const [selectedIconDirectory, setSelectedIconDirectory] = useState<string | null>(null)
   const [isUnavailableExpanded, setIsUnavailableExpanded] = useState(false)
-  const scanButtonLabel = inputDisabled ? '扫描中…' : '重新扫描'
-  const chooseButtonLabel = inputDisabled ? '处理中…' : '选择文件夹'
+  const scanButtonLabel = inputDisabled ? t('directories.scanning') : t('directories.rescan')
+  const chooseButtonLabel = inputDisabled ? t('directories.processing') : t('directories.chooseFolder')
   const installedBuiltInDirectories = builtInDirectories.filter((directory) => directory.installed)
   const unavailableBuiltInDirectories = builtInDirectories.filter((directory) => !directory.installed)
 
@@ -102,7 +105,7 @@ export function SkillDirectoryConfig({
       fileName.endsWith('.svg')
 
     if (!isSupportedIcon) {
-      onSetFeedbackMessage('图标仅支持 PNG 或 SVG 文件。')
+      onSetFeedbackMessage(t('directories.iconTypeError'))
       return
     }
 
@@ -110,7 +113,7 @@ export function SkillDirectoryConfig({
       onSaveSourceIcon(directory, { type: 'dataUrl', value })
       setSelectedIconDirectory(null)
     }).catch(() => {
-      onSetFeedbackMessage('读取图标失败，请重新选择 PNG 或 SVG 文件。')
+      onSetFeedbackMessage(t('directories.iconReadError'))
     })
   }
 
@@ -135,9 +138,12 @@ export function SkillDirectoryConfig({
 
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-[14px] font-semibold text-foreground">扫描目录</h3>
+            <h3 className="text-[14px] font-semibold text-foreground">{t('directories.scanTitle')}</h3>
             <p className="mt-1 text-[12px] text-foreground/52">
-              当前扫描 {configuredDirectories.length} 个目录，发现 {skillCount} 个 skill
+              {t('directories.scanSummary', {
+                directoryCount: configuredDirectories.length,
+                skillCount,
+              })}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -150,7 +156,7 @@ export function SkillDirectoryConfig({
               {chooseButtonLabel}
             </button>
             <button
-              className="cursor-pointer rounded-[8px] border border-border/50 bg-white px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
+              className="cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
               disabled={inputDisabled}
               onClick={onRefresh}
               type="button"
@@ -163,26 +169,27 @@ export function SkillDirectoryConfig({
         <div className="space-y-6">
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
-              <div className="text-[12px] font-medium text-foreground/70">自定义目录</div>
-              <div className="text-[11px] text-foreground/40">{userConfiguredDirectories.length} 个</div>
+              <div className="text-[12px] font-medium text-foreground/70">{t('directories.customDirectories')}</div>
+              <div className="text-[11px] text-foreground/40">{t('app.count', { count: userConfiguredDirectories.length })}</div>
             </div>
             <div className="space-y-2">
               {userConfiguredDirectories.length === 0 ? (
-                <div className="rounded-[8px] border border-border/50 bg-white px-4 py-3 text-[12px] text-foreground/52 shadow-minimal-flat">
-                  暂无自定义扫描目录。
+                <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 text-[12px] text-foreground/52 shadow-minimal-flat">
+                  {t('directories.emptyCustom')}
                 </div>
               ) : (
                 userConfiguredDirectories.map((directory) => {
                   const agentInfo = getAgentInfoFromDirectory(directory)
+                  const agentName = displayAgentName(agentInfo.agentId, agentInfo.agentName, t)
                   const sourceIcon = sourceIcons[directory]
 
                   return (
                     <div
-                      className="flex items-center gap-3 rounded-[8px] border border-border/50 bg-white px-4 py-3 shadow-minimal-flat"
+                      className="flex items-center gap-3 rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 shadow-minimal-flat"
                       key={directory}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] border border-border/45 bg-[color-mix(in_srgb,var(--foreground)_2%,white)]">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] border border-border/45 bg-[var(--surface-muted)]">
                           <AgentIcon
                             agentIcon={sourceIcon}
                             agentId={agentInfo.agentId}
@@ -191,7 +198,7 @@ export function SkillDirectoryConfig({
                           />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-[12px] font-medium text-foreground/82">{agentInfo.agentName}</div>
+                          <div className="text-[12px] font-medium text-foreground/82">{agentName}</div>
                           <div className="mt-0.5 truncate text-[12px] text-foreground/52">{directory}</div>
                         </div>
                       </div>
@@ -202,7 +209,7 @@ export function SkillDirectoryConfig({
                           onClick={() => handleChooseIcon(directory)}
                           type="button"
                         >
-                          更换图标
+                          {t('directories.changeIcon')}
                         </button>
                         {sourceIcon ? (
                           <button
@@ -211,7 +218,7 @@ export function SkillDirectoryConfig({
                             onClick={() => onSaveSourceIcon(directory, null)}
                             type="button"
                           >
-                            重置
+                            {t('common.reset')}
                           </button>
                         ) : null}
                         <button
@@ -220,7 +227,7 @@ export function SkillDirectoryConfig({
                           onClick={() => onRemoveDirectory(directory)}
                           type="button"
                         >
-                          删除
+                          {t('common.delete')}
                         </button>
                       </div>
                     </div>
@@ -233,13 +240,13 @@ export function SkillDirectoryConfig({
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <div className="text-[12px] font-medium text-foreground/70">
-                已安装 Agent · {installedBuiltInDirectories.length} 个
+                {t('directories.installedAgents', { count: installedBuiltInDirectories.length })}
               </div>
             </div>
             <div className="space-y-2">
               {installedBuiltInDirectories.length === 0 ? (
-                <div className="rounded-[8px] border border-border/50 bg-white px-4 py-3 text-[12px] text-foreground/52 shadow-minimal-flat">
-                  暂未检测到已安装的内置 Agent。
+                <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 text-[12px] text-foreground/52 shadow-minimal-flat">
+                  {t('directories.emptyInstalled')}
                 </div>
               ) : (
                 installedBuiltInDirectories.map((directory) => {
@@ -247,11 +254,11 @@ export function SkillDirectoryConfig({
 
                   return (
                     <div
-                      className="flex items-center gap-3 rounded-[8px] border border-border/50 bg-white px-4 py-3 shadow-minimal-flat"
+                      className="flex items-center gap-3 rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 shadow-minimal-flat"
                       key={directory.directory}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] border border-border/45 bg-[color-mix(in_srgb,var(--foreground)_2%,white)]">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] border border-border/45 bg-[var(--surface-muted)]">
                           <AgentIcon
                             agentIcon={sourceIcon}
                             agentId={directory.agentId}
@@ -271,7 +278,7 @@ export function SkillDirectoryConfig({
                           onClick={() => handleChooseIcon(directory.directory)}
                           type="button"
                         >
-                          更换图标
+                          {t('directories.changeIcon')}
                         </button>
                         {sourceIcon ? (
                           <button
@@ -280,7 +287,7 @@ export function SkillDirectoryConfig({
                             onClick={() => onSaveSourceIcon(directory.directory, null)}
                             type="button"
                           >
-                            重置
+                            {t('common.reset')}
                           </button>
                         ) : null}
                       </div>
@@ -294,7 +301,7 @@ export function SkillDirectoryConfig({
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <div className="text-[12px] font-medium text-foreground/70">
-                未安装内置 Agent · {unavailableBuiltInDirectories.length} 个
+                {t('directories.unavailableAgents', { count: unavailableBuiltInDirectories.length })}
               </div>
               <button
                 aria-expanded={isUnavailableExpanded}
@@ -302,18 +309,18 @@ export function SkillDirectoryConfig({
                 onClick={() => setIsUnavailableExpanded((isExpanded) => !isExpanded)}
                 type="button"
               >
-                {isUnavailableExpanded ? '收起' : '展开'}
+                {isUnavailableExpanded ? t('common.collapse') : t('common.expand')}
               </button>
             </div>
             {isUnavailableExpanded ? (
               <div className="space-y-2">
                 {unavailableBuiltInDirectories.map((directory) => (
                   <div
-                    className="flex items-center gap-3 rounded-[8px] border border-border/35 bg-white/64 px-4 py-3 text-foreground/45 shadow-minimal-flat"
+                    className="flex items-center gap-3 rounded-[8px] border border-border/35 bg-[var(--surface-subtle)] px-4 py-3 text-foreground/45 shadow-minimal-flat"
                     key={directory.directory}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] border border-border/35 bg-white/50">
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] border border-border/35 bg-[var(--surface-muted)]">
                         <AgentIcon
                           agentIcon={null}
                           agentId={directory.agentId}

@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { AgentIcon } from '../../skill-manager/agentInfo'
+import { displayAgentName } from '../../skill-manager/display'
+import { useAppPreferences } from '../../skill-manager/preferences'
 import { isRealSkillSource } from '../../skill-manager/skillGrouping'
 import { type DirectoryOpenTarget, type Skill } from '../../skill-manager/types'
 import { DefinitionTable } from './DefinitionTable'
@@ -21,40 +23,41 @@ function formatValue(value: unknown) {
   return String(value)
 }
 
-function formatMetadataLabel(key: string) {
+function formatMetadataLabel(key: string, t: ReturnType<typeof useAppPreferences>['t']) {
   const labels: Record<string, string> = {
-    cli_version: 'CLI 版本',
-    license: '许可证',
-    version: '版本',
-    author: '作者',
-    metadata: '附加元数据',
+    cli_version: t('table.cliVersion'),
+    license: t('table.license'),
+    version: t('table.version'),
+    author: t('table.author'),
+    metadata: t('table.metadata'),
   }
 
   return labels[key] ?? key
 }
 
-function buildMetadataRows(skill: Skill) {
+function buildMetadataRows(skill: Skill, t: ReturnType<typeof useAppPreferences>['t']) {
   const reservedKeys = new Set(['name', 'description'])
   const extraRows = Object.entries(skill.metadata)
     .filter(([key]) => !reservedKeys.has(key))
     .map(([key, value]) => ({
-      label: formatMetadataLabel(key),
+      label: formatMetadataLabel(key, t),
       value: formatValue(value),
     }))
 
   return [
-    { label: '标识符', value: skill.slug },
-    { label: '名称', value: skill.name },
-    { label: '描述', value: skill.description || '—' },
+    { label: t('table.identifier'), value: skill.slug },
+    { label: t('table.name'), value: skill.name },
+    { label: t('table.description'), value: skill.description || t('common.noValue') },
     ...extraRows,
   ]
 }
 
-function buildSourceRows(skill: Skill) {
+function buildSourceRows(skill: Skill, t: ReturnType<typeof useAppPreferences>['t']) {
   const isSoftLinkSource = !isRealSkillSource(skill)
+  const agentName = displayAgentName(skill.agentId, skill.agentName, t)
   return [
     {
-      label: 'Agent 应用',
+      label: t('table.agentApp'),
       value: (
         <span className="flex min-w-0 items-center gap-1.5">
           <AgentIcon
@@ -63,25 +66,26 @@ function buildSourceRows(skill: Skill) {
             agentName={skill.agentName}
             size={14}
           />
-          <span className="min-w-0 truncate">{skill.agentName}</span>
+          <span className="min-w-0 truncate">{agentName}</span>
         </span>
       ),
     },
-    { label: '扫描目录', value: skill.sourceDirectory },
-    { label: 'Skill 目录', value: skill.skillDirectory },
-    { label: '相对位置', value: skill.location },
+    { label: t('table.scanDirectory'), value: skill.sourceDirectory },
+    { label: t('table.skillDirectory'), value: skill.skillDirectory },
+    { label: t('table.relativeLocation'), value: skill.location },
     ...(isSoftLinkSource
       ? [
-          { label: '来源状态', value: '软链接' },
-          { label: '真实位置', value: skill.resolvedSkillDirectory },
+          { label: t('table.sourceStatus'), value: t('source.softLink') },
+          { label: t('table.realLocation'), value: skill.resolvedSkillDirectory },
         ]
       : []),
-    { label: '内容指纹', value: skill.contentHash },
+    { label: t('table.contentHash'), value: skill.contentHash },
   ]
 }
 
 export function SkillMetadataTable({ skill }: { skill: Skill }) {
-  const rows = useMemo(() => buildMetadataRows(skill), [skill])
+  const { t } = useAppPreferences()
+  const rows = useMemo(() => buildMetadataRows(skill, t), [skill, t])
 
   return <DefinitionTable rows={rows} />
 }
@@ -97,13 +101,14 @@ export function SkillSourceTable({
   sourceCount: number
   onRemoveSource: (skill: Skill) => Promise<void>
 }) {
-  const rows = useMemo(() => buildSourceRows(skill), [skill])
+  const { t } = useAppPreferences()
+  const rows = useMemo(() => buildSourceRows(skill, t), [skill, t])
 
   return (
-    <div className="relative z-30 rounded-[8px] border border-border/50 bg-white">
+    <div className="relative z-30 rounded-[8px] border border-border/50 bg-[var(--surface)]">
       <div className="flex items-center justify-between gap-3 border-b border-border/50 px-3 py-2">
         <div className="min-w-0">
-          <p className="text-[12px] font-medium text-foreground/68">当前来源</p>
+          <p className="text-[12px] font-medium text-foreground/68">{t('table.currentSource')}</p>
           <p className="mt-0.5 truncate text-[11px] text-foreground/38">{skill.skillDirectory}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">

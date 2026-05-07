@@ -1,3 +1,4 @@
+import { useAppPreferences } from '../../skill-manager/preferences'
 import { type SkillGroup } from '../../skill-manager/types'
 import { SettingsEntry } from './SettingsEntry'
 
@@ -24,26 +25,31 @@ export function SkillSidebar({
   onSelectSettings: () => void
   onSelectSkillGroup: (group: SkillGroup) => void
 }) {
+  const { t } = useAppPreferences()
+
   return (
-    <aside className="flex h-full flex-col overflow-hidden rounded-[8px] bg-white shadow-minimal">
+    <aside className="flex h-full flex-col overflow-hidden rounded-[8px] bg-[var(--surface)] shadow-minimal">
       <div className="border-b border-border/50 px-4 py-4">
         <div className="flex items-end justify-between gap-3">
-          <h1 className="text-[14px] font-semibold text-foreground">技能库</h1>
+          <h1 className="text-[14px] font-semibold text-foreground">{t('app.library')}</h1>
           <span className="text-[12px] text-foreground/45">
             {filteredSkillGroups.length === skillGroups.length
-              ? `${skillGroups.length} 个`
-              : `${filteredSkillGroups.length}/${skillGroups.length}`}
+              ? t('app.count', { count: skillGroups.length })
+              : t('app.filteredCount', {
+                  filtered: filteredSkillGroups.length,
+                  total: skillGroups.length,
+                })}
           </span>
         </div>
         {multiSourceGroupCount > 0 ? (
           <p className="mt-1 text-[11px] text-foreground/40">
-            {multiSourceGroupCount} 个多来源
+            {t('app.multiSourceCount', { count: multiSourceGroupCount })}
           </p>
         ) : null}
         <input
-          className="mt-3 h-8 w-full rounded-[8px] border border-border/50 bg-[color-mix(in_srgb,var(--foreground)_2%,white)] px-3 text-[12px] text-foreground outline-none placeholder:text-foreground/35 focus:border-foreground/18"
+          className="mt-3 h-8 w-full rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-3 text-[12px] text-foreground outline-none placeholder:text-foreground/35 focus:border-foreground/18"
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="搜索名称、描述或路径"
+          placeholder={t('app.searchPlaceholder')}
           type="search"
           value={skillSearchQuery}
         />
@@ -51,9 +57,9 @@ export function SkillSidebar({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {skillGroups.length === 0 ? (
-          <div className="px-4 py-6 text-[12px] text-foreground/56">没有在当前目录中发现可用 skill。</div>
+          <div className="px-4 py-6 text-[12px] text-foreground/56">{t('app.emptySkills')}</div>
         ) : filteredSkillGroups.length === 0 ? (
-          <div className="px-4 py-6 text-[12px] text-foreground/56">没有匹配的 skill。</div>
+          <div className="px-4 py-6 text-[12px] text-foreground/56">{t('app.emptySearch')}</div>
         ) : (
           <ul className="divide-y divide-border/50">
             {filteredSkillGroups.map((group) => {
@@ -82,12 +88,12 @@ export function SkillSidebar({
                             {group.name}
                           </h2>
                           {group.variantCount > 1 ? (
-                            <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_10%,white)] px-2 py-0.5 text-[10px] font-medium text-accent">
-                              {group.variantCount} 版本
+                            <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_10%,var(--surface))] px-2 py-0.5 text-[10px] font-medium text-accent">
+                              {t('app.variantBadge', { count: group.variantCount })}
                             </span>
                           ) : group.sourceCount > 1 ? (
-                            <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--foreground)_4%,white)] px-2 py-0.5 text-[10px] font-medium text-foreground/48">
-                              {group.sourceCount} 来源
+                            <span className="shrink-0 rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-medium text-foreground/48">
+                              {t('app.sourceBadge', { count: group.sourceCount })}
                             </span>
                           ) : null}
                         </div>
@@ -109,12 +115,12 @@ export function SkillSidebar({
           <SettingsEntry
             icon="agent-skill"
             isSelected={selectedPanel === 'agent-skill-config'}
-            label="Agent Skill 配置"
+            label={t('app.agentSkillConfig')}
             onClick={onSelectAgentSkillConfig}
           />
           <SettingsEntry
             isSelected={selectedPanel === 'settings'}
-            label="设置"
+            label={t('app.settings')}
             onClick={onSelectSettings}
           />
         </div>

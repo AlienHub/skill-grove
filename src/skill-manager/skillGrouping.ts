@@ -1,4 +1,9 @@
 import { type Skill, type SkillGroup, type SkillVariant } from './types'
+import { translate, type TranslationKey } from './i18n'
+
+type TFunction = (key: TranslationKey, params?: Record<string, string | number>) => string
+
+const defaultT: TFunction = (key, params) => translate('zh-CN', key, params)
 
 function getSkillIdentity(skill: Skill) {
   return (skill.name || skill.slug || skill.location).trim().toLowerCase()
@@ -43,29 +48,35 @@ function getVariantPrimarySkill(skills: Skill[]) {
   return skills.find(isRealSkillSource) ?? skills[0]
 }
 
-export function describeSkillVariant(variant: SkillVariant) {
+export function describeSkillVariant(variant: SkillVariant, t: TFunction = defaultT) {
   if (variant.relationship === 'symlink') {
-    return `软链接引用 · ${variant.skills.length} 个入口`
+    return t('group.symlink', { count: variant.skills.length })
   }
 
   if (variant.relationship === 'same-content') {
     if (variant.softLinkCount > 0) {
-      return `内容一致 · ${variant.realFileCount} 份文件 · ${variant.softLinkCount} 个软链接`
+      return t('group.sameContentWithLinks', {
+        realFileCount: variant.realFileCount,
+        softLinkCount: variant.softLinkCount,
+      })
     }
 
-    return `内容一致 · ${variant.realFileCount} 份文件`
+    return t('group.sameContent', { realFileCount: variant.realFileCount })
   }
 
-  return '单一来源'
+  return t('group.singleSource')
 }
 
-export function describeSkillGroup(group: SkillGroup) {
+export function describeSkillGroup(group: SkillGroup, t: TFunction = defaultT) {
   if (group.variantCount > 1) {
-    return `${group.variantCount} 个内容版本 · ${group.sourceCount} 个来源`
+    return t('group.variantSummary', {
+      variantCount: group.variantCount,
+      sourceCount: group.sourceCount,
+    })
   }
 
   if (group.sourceCount > 1) {
-    return `${group.sourceCount} 个来源 · 内容一致`
+    return t('group.sourceSummary', { sourceCount: group.sourceCount })
   }
 
   return group.primarySkill.location

@@ -14,6 +14,7 @@ import {
   saveSourceIcon,
 } from '../skill-manager/api'
 import { buildSkillGroups } from '../skill-manager/skillGrouping'
+import { useAppPreferences } from '../skill-manager/preferences'
 import {
   type Skill,
   type SkillGroup,
@@ -43,6 +44,7 @@ function filterSkillGroups(skillGroups: SkillGroup[], queryValue: string) {
 }
 
 export function SkillManagerPage() {
+  const { t } = useAppPreferences()
   const [skillState, setSkillState] = useState<SkillManagerState>(initialSkillManagerState)
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(
     initialSkillManagerState.skills[0]?.id ?? null
@@ -113,9 +115,9 @@ export function SkillManagerPage() {
       setUpdateCheckStatus('ready')
     } catch {
       setUpdateCheckStatus('error')
-      setUpdateCheckError('无法连接 GitHub Release，请稍后重试。')
+      setUpdateCheckError(t('updates.connectionError'))
     }
-  }, [])
+  }, [t])
 
   const handleOpenExternalUrl = useCallback((url: string) => {
     void openExternalUrl(url)
@@ -129,9 +131,9 @@ export function SkillManagerPage() {
       await installUpdateAndRelaunch()
     } catch {
       setUpdateInstallStatus('error')
-      setUpdateInstallError('自动更新包暂不可用，请下载 DMG 手动安装。')
+      setUpdateInstallError(t('updates.installError'))
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void handleCheckForUpdates()
@@ -180,25 +182,25 @@ export function SkillManagerPage() {
 
   const handleChooseDirectory = async (directory: string) => {
     if (!directory) {
-      setDirectoryFeedbackMessage('当前环境没有返回真实文件夹路径，请重新选择文件夹。')
+      setDirectoryFeedbackMessage(t('directories.noFolderPath'))
       return
     }
 
-    setDirectoryFeedbackMessage(`已选中文件夹：${directory}`)
+    setDirectoryFeedbackMessage(t('directories.selectedFolder', { directory }))
     await updateDirectories([...skillState.userConfiguredDirectories, directory])
   }
 
   const handleSaveSourceIcon = (directory: string, icon: SourceIcon | null) => {
     setIsSavingDirectories(true)
-    setDirectoryFeedbackMessage(icon ? '正在更新来源图标…' : '正在重置来源图标…')
+    setDirectoryFeedbackMessage(icon ? t('directories.updatingIcon') : t('directories.resettingIcon'))
 
     void saveSourceIcon(directory, icon)
       .then((nextState) => {
         setSkillState(nextState)
-        setDirectoryFeedbackMessage(icon ? '来源图标已更新。' : '来源图标已重置。')
+        setDirectoryFeedbackMessage(icon ? t('directories.iconUpdated') : t('directories.iconReset'))
       })
       .catch(() => {
-        setDirectoryFeedbackMessage('来源图标更新失败，请稍后重试。')
+        setDirectoryFeedbackMessage(t('directories.iconUpdateFailed'))
       })
       .finally(() => {
         setIsSavingDirectories(false)

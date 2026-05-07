@@ -1,21 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { AgentIcon } from '../../skill-manager/agentInfo'
-import { getVisibleSourceTypeLabel, isRealSkillSource } from '../../skill-manager/skillGrouping'
+import { displayAgentName } from '../../skill-manager/display'
+import { useAppPreferences } from '../../skill-manager/preferences'
+import { isRealSkillSource } from '../../skill-manager/skillGrouping'
 import { type Skill, type SkillGroup } from '../../skill-manager/types'
 
-function getVariantLabel(index: number) {
+function getVariantLabel(index: number, t: ReturnType<typeof useAppPreferences>['t']) {
   if (index >= 0 && index < 26) {
-    return `版本 ${String.fromCharCode(65 + index)}`
+    return t('source.variantLabel', { label: String.fromCharCode(65 + index) })
   }
 
-  return `版本 ${index + 1}`
+  return t('source.variantNumber', { number: index + 1 })
 }
 
 function getSourcePath(skill: Skill) {
   return skill.skillDirectory
 }
 
-function sortSources(left: Skill, right: Skill, selectedSkillId: string) {
+function sortSources(left: Skill, right: Skill, selectedSkillId: string, locale: string) {
   if (left.id === selectedSkillId) {
     return -1
   }
@@ -30,12 +32,12 @@ function sortSources(left: Skill, right: Skill, selectedSkillId: string) {
     return leftIsReal ? -1 : 1
   }
 
-  const agentCompare = left.agentName.localeCompare(right.agentName, 'zh-CN')
+  const agentCompare = left.agentName.localeCompare(right.agentName, locale)
   if (agentCompare !== 0) {
     return agentCompare
   }
 
-  return getSourcePath(left).localeCompare(getSourcePath(right), 'zh-CN')
+  return getSourcePath(left).localeCompare(getSourcePath(right), locale)
 }
 
 function sourceMatchesQuery(skill: Skill, query: string) {
@@ -65,9 +67,11 @@ function ChevronDownIcon({ size }: { size: number }) {
 function VariantAgentPreview({
   sources,
   totalSourceCount,
+  t,
 }: {
   sources: Skill[]
   totalSourceCount: number
+  t: ReturnType<typeof useAppPreferences>['t']
 }) {
   const previewLimit = totalSourceCount > 12 ? 0 : totalSourceCount > 5 ? 4 : 5
   const visibleSources = previewLimit > 0 ? sources.slice(0, previewLimit) : []
@@ -81,7 +85,7 @@ function VariantAgentPreview({
     <div className="mt-2 flex flex-wrap gap-1.5">
       {visibleSources.map((skill) => (
         <span
-          className="inline-flex max-w-[140px] items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--foreground)_3%,white)] px-2 py-1 text-[11px] font-medium text-foreground/56"
+          className="inline-flex max-w-[140px] items-center gap-1.5 rounded-full bg-[var(--surface-muted)] px-2 py-1 text-[11px] font-medium text-foreground/56"
           key={skill.id}
           title={getSourcePath(skill)}
         >
@@ -91,11 +95,11 @@ function VariantAgentPreview({
             agentName={skill.agentName}
             size={12}
           />
-          <span className="truncate">{skill.agentName}</span>
+          <span className="truncate">{displayAgentName(skill.agentId, skill.agentName, t)}</span>
         </span>
       ))}
       {hiddenSourceCount > 0 ? (
-        <span className="inline-flex rounded-full bg-[color-mix(in_srgb,var(--foreground)_3%,white)] px-2 py-1 text-[11px] font-medium text-foreground/44">
+        <span className="inline-flex rounded-full bg-[var(--surface-muted)] px-2 py-1 text-[11px] font-medium text-foreground/44">
           +{hiddenSourceCount}
         </span>
       ) : null}
@@ -112,6 +116,7 @@ export function SkillSourcePicker({
   selectedSkill: Skill
   onSelectSkill: (skillId: string) => void
 }) {
+  const { language, t } = useAppPreferences()
   const [isExpanded, setIsExpanded] = useState(false)
   const [sourceSearchQuery, setSourceSearchQuery] = useState('')
   const pickerRef = useRef<HTMLDivElement>(null)
@@ -123,8 +128,8 @@ export function SkillSourcePicker({
   const query = sourceSearchQuery.trim().toLowerCase()
   const variantGroups = group.variants.map((variant, index) => ({
     index,
-    label: getVariantLabel(index),
-    sources: [...variant.skills].sort((left, right) => sortSources(left, right, selectedSkill.id)),
+    label: getVariantLabel(index, t),
+    sources: [...variant.skills].sort((left, right) => sortSources(left, right, selectedSkill.id, language)),
     variant,
   }))
   const filteredVariantGroups = variantGroups
@@ -135,20 +140,27 @@ export function SkillSourcePicker({
     .filter((variantGroup) => variantGroup.sources.length > 0)
   const sourceSummary =
     group.variantCount > 1
-      ? `${group.variantCount} 个内容版本 · ${group.sourceCount} 个来源`
+      ? t('source.variantSummary', {
+          variantCount: group.variantCount,
+          sourceCount: group.sourceCount,
+        })
       : group.sourceCount > 1
-        ? `${group.sourceCount} 个来源 · 内容一致`
-        : '1 个来源'
+        ? t('source.sourceSummary', { sourceCount: group.sourceCount })
+        : t('source.singleSource')
   const sourceHint =
     group.variantCount > 1
-      ? '有几个来源的内容不一致，值得看一眼。'
+      ? t('source.variantHint')
       : group.sourceCount > 1
-        ? '这个 skill 在多个 Agent 中保持同步。'
-        : '当前 skill 只有一个来源。'
-  const selectedVariantLabel = selectedVariantIndex >= 0 ? getVariantLabel(selectedVariantIndex) : getVariantLabel(0)
+        ? t('source.syncedHint')
+        : t('source.singleHint')
+  const selectedVariantLabel = selectedVariantIndex >= 0 ? getVariantLabel(selectedVariantIndex, t) : getVariantLabel(0, t)
+  const selectedAgentName = displayAgentName(selectedSkill.agentId, selectedSkill.agentName, t)
   const selectedSourceTitle = selectedVariant
-    ? `${selectedVariantLabel} · 当前来源：${selectedSkill.agentName}`
-    : `当前来源：${selectedSkill.agentName}`
+    ? t('source.currentSourceTitle', {
+        variantLabel: selectedVariantLabel,
+        agentName: selectedAgentName,
+      })
+    : t('source.currentSource', { agentName: selectedAgentName })
 
   useEffect(() => {
     if (!isExpanded) {
@@ -191,7 +203,7 @@ export function SkillSourcePicker({
             <div className="relative">
               <button
                 aria-expanded={isExpanded}
-                className="flex h-8 cursor-pointer overflow-hidden rounded-[8px] border border-border/50 bg-white text-[12px] font-medium text-foreground/68 shadow-minimal-flat transition-colors hover:text-foreground"
+                className="flex h-8 cursor-pointer overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface)] text-[12px] font-medium text-foreground/68 shadow-minimal-flat transition-colors hover:text-foreground"
                 onClick={() => setIsExpanded((value) => !value)}
                 title={selectedSourceTitle}
                 type="button"
@@ -203,26 +215,28 @@ export function SkillSourcePicker({
                     agentName={selectedSkill.agentName}
                     size={14}
                   />
-                  <span className="max-w-[150px] truncate">当前来源：{selectedSkill.agentName}</span>
+                  <span className="max-w-[150px] truncate">
+                    {t('source.currentSource', { agentName: selectedAgentName })}
+                  </span>
                 </span>
                 <span className="flex w-7 items-center justify-center border-l border-border/45 text-foreground/42">
                   <ChevronDownIcon size={13} />
                 </span>
               </button>
             {isExpanded ? (
-              <div className="absolute right-0 top-[calc(100%+6px)] z-[850] w-[460px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-[8px] border border-border/50 bg-white shadow-strong">
+              <div className="absolute right-0 top-[calc(100%+6px)] z-[850] w-[460px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface)] shadow-strong">
                 <div className="border-b border-border/50 p-2">
                   <input
-                    className="h-8 w-full rounded-[8px] border border-border/50 bg-[color-mix(in_srgb,var(--foreground)_2%,white)] px-3 text-[12px] text-foreground outline-none placeholder:text-foreground/35 focus:border-foreground/18"
+                    className="h-8 w-full rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-3 text-[12px] text-foreground outline-none placeholder:text-foreground/35 focus:border-foreground/18"
                     onChange={(event) => setSourceSearchQuery(event.target.value)}
-                    placeholder="搜索 Agent 或路径"
+                    placeholder={t('source.searchPlaceholder')}
                     type="search"
                     value={sourceSearchQuery}
                   />
                 </div>
                 <div className="max-h-[280px] overflow-y-auto">
                   {filteredVariantGroups.length === 0 ? (
-                    <div className="px-3 py-4 text-[12px] text-foreground/52">没有匹配的来源。</div>
+                    <div className="px-3 py-4 text-[12px] text-foreground/52">{t('source.noMatches')}</div>
                   ) : (
                     <div className="divide-y divide-border/50">
                       {filteredVariantGroups.map(({ label, sources, variant }) => {
@@ -230,28 +244,28 @@ export function SkillSourcePicker({
 
                         return (
                           <section key={variant.id}>
-                            <div className="bg-[color-mix(in_srgb,var(--foreground)_1.5%,white)] px-3 py-2">
+                            <div className="bg-[var(--surface-muted)] px-3 py-2">
                               <div className="flex items-center justify-between gap-3">
                                 <p className="text-[11px] font-semibold text-foreground/52">
-                                  {label} · {variant.skills.length} 个来源
+                                  {label} · {t('source.sourcesCount', { count: variant.skills.length })}
                                 </p>
                                 {isCurrentVariant ? (
-                                  <span className="text-[10px] font-medium text-accent">当前内容</span>
+                                  <span className="text-[10px] font-medium text-accent">{t('source.currentContent')}</span>
                                 ) : null}
                               </div>
                             </div>
                             <ul>
                               {sources.map((skill) => {
                                 const isSelected = skill.id === selectedSkill.id
-                                const sourceType = getVisibleSourceTypeLabel(skill)
+                                const sourceType = isRealSkillSource(skill) ? null : t('source.softLink')
                                 const sourcePath = getSourcePath(skill)
 
                                 return (
                                   <li
                                     className={`transition-colors ${
                                       isSelected
-                                        ? 'bg-[color-mix(in_srgb,var(--accent)_8%,white)]'
-                                        : 'hover:bg-[color-mix(in_srgb,var(--foreground)_2%,white)]'
+                                        ? 'bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface))]'
+                                        : 'hover:bg-[var(--surface-muted)]'
                                     }`}
                                     key={skill.id}
                                   >
@@ -266,7 +280,7 @@ export function SkillSourcePicker({
                                       title={skill.skillDirectory}
                                       type="button"
                                     >
-                                      <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] border border-border/45 bg-white">
+                                      <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] border border-border/45 bg-[var(--surface)]">
                                         <AgentIcon
                                           agentIcon={skill.agentIcon}
                                           agentId={skill.agentId}
@@ -277,10 +291,10 @@ export function SkillSourcePicker({
                                       <div className="min-w-0 flex-1">
                                         <div className="flex min-w-0 items-center gap-2">
                                           <span className="truncate text-[12px] font-medium text-foreground/84">
-                                            {skill.agentName}
+                                            {displayAgentName(skill.agentId, skill.agentName, t)}
                                           </span>
                                           {sourceType ? (
-                                            <span className="rounded-full bg-[color-mix(in_srgb,var(--foreground)_4%,white)] px-2 py-0.5 text-[10px] font-medium text-foreground/52">
+                                            <span className="rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-medium text-foreground/52">
                                               {sourceType}
                                             </span>
                                           ) : null}
@@ -288,7 +302,7 @@ export function SkillSourcePicker({
                                         <p className="mt-0.5 truncate text-[12px] text-foreground/45">{sourcePath}</p>
                                       </div>
                                       {isSelected ? (
-                                        <span className="shrink-0 text-[11px] font-medium text-accent">当前</span>
+                                        <span className="shrink-0 text-[11px] font-medium text-accent">{t('source.current')}</span>
                                       ) : null}
                                     </button>
                                   </li>
@@ -309,7 +323,7 @@ export function SkillSourcePicker({
       </div>
 
       {group.sourceCount > 1 ? (
-        <div className="rounded-[8px] border border-border/50 bg-white p-3">
+        <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] p-3">
           <div className={`grid gap-2 ${variantGroups.length > 1 ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
             {variantGroups.map(({ index, label, sources, variant }) => {
               const isCurrentVariant = variant.id === selectedVariant?.id
@@ -318,22 +332,22 @@ export function SkillSourcePicker({
                 <div
                   className={`rounded-[8px] border px-3 py-2 ${
                     isCurrentVariant
-                      ? 'border-[color-mix(in_srgb,var(--accent)_22%,white)] bg-[color-mix(in_srgb,var(--accent)_5%,white)]'
-                      : 'border-border/45 bg-[color-mix(in_srgb,var(--foreground)_1.2%,white)]'
+                      ? 'border-[color-mix(in_srgb,var(--accent)_22%,var(--surface))] bg-[color-mix(in_srgb,var(--accent)_5%,var(--surface))]'
+                      : 'border-border/45 bg-[var(--surface-muted)]'
                   }`}
                   key={variant.id}
                 >
                   <div className="flex min-w-0 items-center justify-between gap-3">
                     <p className="truncate text-[12px] font-medium text-foreground/76">
-                      {label} · {variant.skills.length} 个来源
+                      {label} · {t('source.sourcesCount', { count: variant.skills.length })}
                     </p>
                     {isCurrentVariant ? (
-                      <span className="shrink-0 text-[11px] font-medium text-accent">当前内容</span>
+                      <span className="shrink-0 text-[11px] font-medium text-accent">{t('source.currentContent')}</span>
                     ) : null}
                   </div>
-                  <VariantAgentPreview sources={sources} totalSourceCount={group.sourceCount} />
+                  <VariantAgentPreview sources={sources} totalSourceCount={group.sourceCount} t={t} />
                   {group.sourceCount > 12 && index === 0 ? (
-                    <p className="mt-1.5 text-[11px] text-foreground/36">来源较多，完整列表可在来源菜单中查看。</p>
+                    <p className="mt-1.5 text-[11px] text-foreground/36">{t('source.manySourcesHint')}</p>
                   ) : null}
                 </div>
               )

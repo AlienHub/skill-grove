@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { openSkillDirectory, type OpenDirectoryTarget } from '../../skill-manager/api'
+import { displayAgentName } from '../../skill-manager/display'
+import { useAppPreferences } from '../../skill-manager/preferences'
 import { isRealSkillSource } from '../../skill-manager/skillGrouping'
 import { type DirectoryOpenTarget, type Skill } from '../../skill-manager/types'
-
-const CATEGORY_LABELS: Record<string, string> = {
-  editor: '编辑器',
-  ide: 'IDE',
-}
 
 function ChevronDownIcon({ size }: { size: number }) {
   return (
@@ -97,6 +94,7 @@ export function SkillSourceActions({
   openDirectoryTargets: DirectoryOpenTarget[]
   skill: Skill
 }) {
+  const { t } = useAppPreferences()
   const containerRef = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null)
@@ -150,15 +148,15 @@ export function SkillSourceActions({
 
     void openSkillDirectory(sourcePath(skill), target.id as OpenDirectoryTarget)
       .catch(() => {
-        setFeedbackMessage('打开来源失败，请确认应用可用。')
+        setFeedbackMessage(t('source.openFailed'))
       })
   }
 
   return (
     <div className="relative shrink-0" ref={containerRef}>
-      <div className="flex h-8 overflow-hidden rounded-[8px] border border-border/50 bg-white text-[12px] font-medium text-foreground/68 shadow-minimal-flat">
+      <div className="flex h-8 overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface)] text-[12px] font-medium text-foreground/68 shadow-minimal-flat">
         <button
-          aria-label={`使用 ${fileManagerTarget?.label ?? '文件管理器'} 打开 ${skill.agentName} 来源目录`}
+          aria-label={t('source.openDirectory')}
           className="flex cursor-pointer items-center gap-2 px-2.5 transition-colors hover:bg-foreground/5 hover:text-foreground"
           onClick={(event) => {
             event.stopPropagation()
@@ -166,22 +164,22 @@ export function SkillSourceActions({
               handleOpen(fileManagerTarget)
             }
           }}
-          title={fileManagerTarget?.label ?? '打开目录'}
+          title={fileManagerTarget?.label ?? t('source.openDirectory')}
           type="button"
         >
           {fileManagerTarget ? <TargetIcon target={fileManagerTarget} size={14} /> : <FolderIcon size={14} />}
-          <span>打开目录</span>
+          <span>{t('source.openDirectory')}</span>
         </button>
         <button
           aria-expanded={isOpen}
-          aria-label={`${skill.agentName} 更多来源操作`}
+          aria-label={t('source.moreActions')}
           className="flex w-7 cursor-pointer items-center justify-center border-l border-border/45 text-foreground/42 transition-colors hover:bg-foreground/5 hover:text-foreground"
           onClick={(event) => {
             event.stopPropagation()
             setFeedbackMessage(null)
             setIsOpen((value) => !value)
           }}
-          title="更多来源操作"
+          title={t('source.moreActions')}
           type="button"
         >
           <ChevronDownIcon size={13} />
@@ -190,7 +188,7 @@ export function SkillSourceActions({
 
       {isOpen ? (
         <div
-          className={`absolute top-[calc(100%+6px)] z-[900] w-[220px] overflow-hidden rounded-[8px] border border-border/55 bg-white py-1 shadow-minimal ${
+          className={`absolute top-[calc(100%+6px)] z-[900] w-[220px] overflow-hidden rounded-[8px] border border-border/55 bg-[var(--surface)] py-1 shadow-minimal ${
             align === 'left' ? 'left-0' : 'right-0'
           }`}
         >
@@ -203,14 +201,18 @@ export function SkillSourceActions({
               <span className="flex size-5 shrink-0 items-center justify-center">
                 <TargetIcon target={fileManagerTarget} />
               </span>
-              <span className="min-w-0 truncate">打开目录</span>
+              <span className="min-w-0 truncate">{t('source.openDirectory')}</span>
             </button>
           ) : null}
 
           {appTargetGroups.map((group) => (
             <div className="border-t border-border/40 pt-1" key={group.category}>
               <div className="px-3 pb-1 pt-1.5 text-[10px] font-medium text-foreground/36">
-                {CATEGORY_LABELS[group.category] ?? group.category}
+                {group.category === 'editor'
+                  ? t('source.categoryEditor')
+                  : group.category === 'ide'
+                    ? t('source.categoryIde')
+                    : group.category}
               </div>
               {group.targets.map((target) => (
                 <button
@@ -222,7 +224,7 @@ export function SkillSourceActions({
                   <span className="flex size-5 shrink-0 items-center justify-center">
                     <TargetIcon target={target} />
                   </span>
-                  <span className="min-w-0 truncate">用 {target.label} 打开</span>
+                  <span className="min-w-0 truncate">{t('source.openWith', { target: target.label })}</span>
                 </button>
               ))}
             </div>
@@ -231,7 +233,7 @@ export function SkillSourceActions({
       ) : null}
 
       {feedbackMessage ? (
-        <p className="absolute right-0 top-[calc(100%+6px)] z-[429] w-[220px] rounded-[8px] border border-border/55 bg-white px-3 py-2 text-[12px] text-foreground/56 shadow-minimal">
+        <p className="absolute right-0 top-[calc(100%+6px)] z-[429] w-[220px] rounded-[8px] border border-border/55 bg-[var(--surface)] px-3 py-2 text-[12px] text-foreground/56 shadow-minimal">
           {feedbackMessage}
         </p>
       ) : null}
@@ -249,6 +251,8 @@ export function SkillSourceRemoveButton({
   sourceCount: number
   onRemoveSource: (skill: Skill) => Promise<void>
 }) {
+  const { t } = useAppPreferences()
+  const agentName = displayAgentName(skill.agentId, skill.agentName, t)
   const [isConfirmingRemoval, setIsConfirmingRemoval] = useState(false)
   const [removalErrorMessage, setRemovalErrorMessage] = useState<string | null>(null)
   const [isRemoving, setIsRemoving] = useState(false)
@@ -263,7 +267,7 @@ export function SkillSourceRemoveButton({
         setIsConfirmingRemoval(false)
       })
       .catch((error) => {
-        setRemovalErrorMessage(errorMessage(error, isSoftLink ? '删除软链失败。' : '放入废纸篓失败。'))
+        setRemovalErrorMessage(errorMessage(error, isSoftLink ? t('source.deleteSoftLinkFailed') : t('source.trashFailed')))
       })
       .finally(() => {
         setIsRemoving(false)
@@ -280,32 +284,32 @@ export function SkillSourceRemoveButton({
         }}
         type="button"
       >
-        {isSoftLink ? '删除软链' : '放入废纸篓'}
+        {isSoftLink ? t('source.deleteSoftLink') : t('source.trash')}
       </button>
 
       {isConfirmingRemoval ? (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/18 px-4">
-          <div className="w-full max-w-[420px] rounded-[8px] border border-border/60 bg-white p-5 shadow-strong">
+        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/22 px-4">
+          <div className="w-full max-w-[420px] rounded-[8px] border border-border/60 bg-[var(--surface)] p-5 shadow-strong">
             <h4 className="text-[14px] font-semibold text-foreground">
-              {isSoftLink ? '删除这个软链？' : '放入废纸篓？'}
+              {isSoftLink ? t('source.confirmDeleteSoftLink') : t('source.confirmTrash')}
             </h4>
             <div className="mt-3 space-y-2 text-[12px] leading-5 text-foreground/56">
               <p>
                 {skill.name}
                 <br />
-                {skill.agentName}
+                {agentName}
                 <br />
                 {sourcePath(skill)}
               </p>
               {isSoftLink ? (
                 <p>
-                  这只会删除 {skill.agentName} 中的软链，不会删除它指向的真实目录：
+                  {t('source.softLinkNotice', { agentName })}
                   <br />
                   {skill.resolvedSkillDirectory}
                 </p>
               ) : (
                 <p>
-                  只会移除这个来源。其他 {Math.max(sourceCount - 1, 0)} 个来源不会受影响。
+                  {t('source.trashNotice', { count: Math.max(sourceCount - 1, 0) })}
                 </p>
               )}
               {removalErrorMessage ? (
@@ -316,12 +320,12 @@ export function SkillSourceRemoveButton({
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button
-                className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-white px-3 text-[12px] font-medium text-foreground/64 transition-colors hover:bg-foreground/5 hover:text-foreground"
+                className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 text-[12px] font-medium text-foreground/64 transition-colors hover:bg-foreground/5 hover:text-foreground"
                 disabled={isRemoving}
                 onClick={() => setIsConfirmingRemoval(false)}
                 type="button"
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 className="h-8 cursor-pointer rounded-[8px] bg-[#b04a3a] px-3 text-[12px] font-medium text-white transition-colors hover:bg-[#963f32] disabled:cursor-default disabled:opacity-55"
@@ -329,7 +333,7 @@ export function SkillSourceRemoveButton({
                 onClick={handleRemoveSource}
                 type="button"
               >
-                {isRemoving ? '处理中...' : isSoftLink ? '删除软链' : '放入废纸篓'}
+                {isRemoving ? t('common.processing') : isSoftLink ? t('source.deleteSoftLink') : t('source.trash')}
               </button>
             </div>
           </div>

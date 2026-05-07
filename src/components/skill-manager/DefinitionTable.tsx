@@ -2,7 +2,7 @@ import { type DefinitionRow } from '../../skill-manager/types'
 
 export function DefinitionTable({ rows }: { rows: DefinitionRow[] }) {
   return (
-    <div className="overflow-hidden rounded-[8px] border border-border/50 bg-white">
+    <div className="overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface)]">
       <dl className="divide-y divide-border/50">
         {rows.map((row) => (
           <div

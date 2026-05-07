@@ -77,6 +77,9 @@
   /* === 6 BASE COLORS === */
   --background: oklch(0.98 0.003 265);
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
+  --surface: oklch(1 0 0);
+  --surface-muted: color-mix(in srgb, var(--foreground) 2%, var(--surface));
+  --surface-subtle: color-mix(in srgb, var(--foreground) 1.5%, var(--surface));
   --foreground: oklch(0.185 0.01 270);
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
   --foreground-rgb: 38, 36, 42;             /* RGB for shadow borders */
@@ -231,6 +234,9 @@
   /* === 6 BASE COLORS (must match DEFAULT_THEME.dark in theme.ts) === */
   --background: oklch(0.145 0.015 270);
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
+  --surface: oklch(0.19 0.017 270);
+  --surface-muted: color-mix(in srgb, var(--foreground) 4%, var(--surface));
+  --surface-subtle: color-mix(in srgb, var(--foreground) 2.5%, var(--surface));
   --foreground: oklch(0.95 0.01 270);
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
   --foreground-rgb: 237, 236, 240;           /* RGB for shadow borders */
@@ -375,6 +381,7 @@ html[data-font="inter"] {
 @theme inline {
   /* === 6 BASE COLORS === */
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
   --color-accent: var(--accent);
   --color-info: var(--info);
@@ -481,6 +488,7 @@ html[data-font="inter"] {
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 160ms ease, color 160ms ease;
   }
 
   /* Scrollbar styling */

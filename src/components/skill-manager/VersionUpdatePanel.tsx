@@ -3,14 +3,15 @@ import {
   type UpdateCheckStatus,
   type UpdateInstallStatus,
 } from '../../skill-manager/types'
+import { useAppPreferences } from '../../skill-manager/preferences'
 
-function formatCheckedAt(value: string) {
+function formatCheckedAt(value: string, locale: string) {
   const checkedAt = new Date(value)
   if (Number.isNaN(checkedAt.getTime())) {
     return null
   }
 
-  return checkedAt.toLocaleString('zh-CN', {
+  return checkedAt.toLocaleString(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -39,10 +40,11 @@ export function VersionUpdatePanel({
   onInstallUpdate: () => void
   onOpenExternalUrl: (url: string) => void
 }) {
+  const { language, t } = useAppPreferences()
   const isChecking = updateCheckStatus === 'checking'
   const isInstalling = updateInstallStatus === 'installing'
   const latestVersion = updateCheck?.latestVersion ? `v${updateCheck.latestVersion}` : null
-  const checkedAt = updateCheck ? formatCheckedAt(updateCheck.checkedAt) : null
+  const checkedAt = updateCheck ? formatCheckedAt(updateCheck.checkedAt, language) : null
   const handleOpenAsset = () => {
     if (updateCheck?.assetUrl) {
       onOpenExternalUrl(updateCheck.assetUrl)
@@ -55,32 +57,32 @@ export function VersionUpdatePanel({
   }
   const statusText = (() => {
     if (isChecking) {
-      return '正在检查 GitHub Release…'
+      return t('updates.checking')
     }
 
     if (updateCheckStatus === 'error') {
-      return updateCheckError ?? '检查失败，请稍后重试。'
+      return updateCheckError ?? t('updates.error')
     }
 
     if (updateCheck?.hasUpdate && latestVersion) {
-      return `发现新版本 ${latestVersion}`
+      return t('updates.found', { version: latestVersion })
     }
 
     if (updateCheckStatus === 'ready') {
-      return '已是最新版本'
+      return t('updates.latest')
     }
 
-    return '等待检查'
+    return t('updates.waiting')
   })()
   const versionStatusText = updateCheckStatus === 'idle' ? null : statusText
 
   return (
     <section>
-      <h3 className="mb-4 text-[14px] font-semibold text-foreground">关于</h3>
+      <h3 className="mb-4 text-[14px] font-semibold text-foreground">{t('updates.about')}</h3>
 
-      <div className="overflow-hidden rounded-[8px] border border-border/50 bg-white shadow-minimal-flat">
+      <div className="overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface)] shadow-minimal-flat">
         <div className="flex min-h-14 items-center justify-between gap-4 px-4 py-3">
-          <div className="text-[14px] font-semibold text-foreground">版本</div>
+          <div className="text-[14px] font-semibold text-foreground">{t('updates.version')}</div>
           <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-right">
             <span className="text-[14px] font-medium text-foreground/48">v{currentVersion}</span>
             {versionStatusText ? (
@@ -91,12 +93,14 @@ export function VersionUpdatePanel({
 
         <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-t border-border/45 px-4 py-3">
           <div className="min-w-0">
-            <div className="text-[14px] font-semibold text-foreground">检查更新</div>
+            <div className="text-[14px] font-semibold text-foreground">{t('updates.checkUpdates')}</div>
             <div className="mt-1 text-[12px] text-foreground/48">
-              {checkedAt ? `上次检查 ${checkedAt}` : '启动后会自动检测最新版本。'}
+              {checkedAt ? t('updates.lastChecked', { checkedAt }) : t('updates.autoCheckHint')}
             </div>
             {updateCheck?.hasUpdate && updateCheck.assetName ? (
-              <div className="mt-1 truncate text-[12px] text-foreground/48">安装包：{updateCheck.assetName}</div>
+              <div className="mt-1 truncate text-[12px] text-foreground/48">
+                {t('updates.asset', { assetName: updateCheck.assetName })}
+              </div>
             ) : null}
             {updateInstallStatus === 'error' && updateInstallError ? (
               <div className="mt-1 text-[12px] text-red-500/80">{updateInstallError}</div>
@@ -112,35 +116,35 @@ export function VersionUpdatePanel({
                   onClick={onInstallUpdate}
                   type="button"
                 >
-                  {isInstalling ? '更新中…' : '重启并更新'}
+                  {isInstalling ? t('updates.installing') : t('updates.install')}
                 </button>
                 {updateCheck.assetUrl ? (
                   <button
-                    className="cursor-pointer rounded-[8px] border border-border/50 bg-white px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5"
+                    className="cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5"
                     onClick={handleOpenAsset}
                     type="button"
                   >
-                    下载 DMG
+                    {t('updates.download')}
                   </button>
                 ) : null}
                 {updateCheck.releaseUrl ? (
                   <button
-                    className="cursor-pointer rounded-[8px] border border-border/50 bg-white px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5"
+                    className="cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5"
                     onClick={handleOpenRelease}
                     type="button"
                   >
-                    查看 Release
+                    {t('updates.openRelease')}
                   </button>
                 ) : null}
               </>
             ) : null}
             <button
-              className="cursor-pointer rounded-[8px] border border-border/60 bg-white px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
+              className="cursor-pointer rounded-[8px] border border-border/60 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
               disabled={isChecking}
               onClick={onCheckForUpdates}
               type="button"
             >
-              {isChecking ? '检查中…' : '立即检查'}
+              {isChecking ? t('common.checking') : t('updates.checkNow')}
             </button>
           </div>
         </div>
