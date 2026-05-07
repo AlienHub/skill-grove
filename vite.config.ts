@@ -75,7 +75,7 @@ type SkillManagerConfig = {
 
 const BUILT_IN_SKILL_DIRECTORIES = [
   { path: resolve(homedir(), '.agents/skills'), agentId: 'agents', agentName: 'Agents', commands: [], appNames: [] },
-  { path: resolve(homedir(), '.codex/skills'), agentId: 'codex', agentName: 'Codex', commands: ['codex'], appNames: [] },
+  { path: resolve(homedir(), '.codex/skills'), agentId: 'codex', agentName: 'Codex', commands: ['codex'], appNames: ['Codex'] },
   { path: resolve(homedir(), '.claude/skills'), agentId: 'claude', agentName: 'Claude', commands: ['claude'], appNames: ['Claude'] },
   { path: resolve(homedir(), '.cursor/skills'), agentId: 'cursor', agentName: 'Cursor', commands: ['cursor'], appNames: ['Cursor'] },
   { path: resolve(homedir(), '.config/opencode/skills'), agentId: 'opencode', agentName: 'OpenCode', commands: ['opencode'], appNames: [] },
@@ -131,6 +131,7 @@ const VIRTUAL_SKILL_MANAGER_STATE = 'virtual:skill-manager-state'
 const RESOLVED_VIRTUAL_SKILL_MANAGER_STATE = '\0virtual:skill-manager-state'
 const projectRoot = dirname(fileURLToPath(import.meta.url))
 const PACKAGE_JSON_PATH = resolve(projectRoot, 'package.json')
+let loginShellPathDirectories: string[] | null = null
 
 function sendJson(res: NodeJS.WritableStream & {
   statusCode?: number
@@ -187,12 +188,54 @@ function isBuiltInDirectory(directory: string) {
 }
 
 function commandExists(command: string) {
-  const pathValue = process.env.PATH
-  if (!pathValue) {
-    return false
+  const commandDirectories = new Set<string>()
+  for (const directory of process.env.PATH?.split(':') ?? []) {
+    if (directory) {
+      commandDirectories.add(directory)
+    }
   }
 
-  return pathValue.split(':').some((directory) => existsSync(resolve(directory, command)))
+  for (const directory of [
+    resolve(homedir(), '.local/bin'),
+    resolve(homedir(), '.bun/bin'),
+    resolve(homedir(), '.cargo/bin'),
+    resolve(homedir(), '.opencode/bin'),
+    resolve(homedir(), 'Library/pnpm'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+  ]) {
+    commandDirectories.add(directory)
+  }
+
+  for (const directory of readLoginShellPathDirectories()) {
+    commandDirectories.add(directory)
+  }
+
+  const nvmVersionsPath = resolve(homedir(), '.nvm/versions/node')
+  try {
+    for (const version of readdirSync(nvmVersionsPath)) {
+      commandDirectories.add(resolve(nvmVersionsPath, version, 'bin'))
+    }
+  } catch {
+    // nvm is optional.
+  }
+
+  return [...commandDirectories].some((directory) => existsSync(resolve(directory, command)))
+}
+
+function readLoginShellPathDirectories() {
+  if (loginShellPathDirectories) {
+    return loginShellPathDirectories
+  }
+
+  const result = spawnSync('/bin/zsh', ['-lc', 'print -r -- "$PATH"'], { encoding: 'utf8' })
+  loginShellPathDirectories = result.status === 0
+    ? result.stdout.trim().split(':').filter(Boolean)
+    : []
+
+  return loginShellPathDirectories
 }
 
 function appExists(appName: string) {

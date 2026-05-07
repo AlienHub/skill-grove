@@ -7,6 +7,7 @@ use std::{
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
     process::Command,
+    sync::OnceLock,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -179,7 +180,7 @@ fn built_in_skill_directories() -> Vec<BuiltInSkillDirectory> {
             agent_id: "codex",
             agent_name: "Codex",
             commands: &["codex"],
-            app_names: &[],
+            app_names: &["Codex"],
         },
         BuiltInSkillDirectory {
             path: home.join(".claude").join("skills"),
@@ -503,12 +504,52 @@ fn is_built_in_directory(directory: &str) -> bool {
         .any(|built_in| built_in.path.to_string_lossy() == directory)
 }
 
-fn command_exists(command: &str) -> bool {
-    let Some(paths) = std::env::var_os("PATH") else {
-        return false;
-    };
+fn login_shell_command_directories() -> &'static Vec<PathBuf> {
+    static LOGIN_SHELL_COMMAND_DIRECTORIES: OnceLock<Vec<PathBuf>> = OnceLock::new();
 
-    std::env::split_paths(&paths).any(|path| path.join(command).is_file())
+    LOGIN_SHELL_COMMAND_DIRECTORIES.get_or_init(|| {
+        let Ok(output) = Command::new("/bin/zsh")
+            .args(["-lc", "print -r -- \"$PATH\""])
+            .output()
+        else {
+            return Vec::new();
+        };
+
+        if !output.status.success() {
+            return Vec::new();
+        }
+
+        let path_value = String::from_utf8_lossy(&output.stdout);
+        std::env::split_paths(path_value.trim()).collect()
+    })
+}
+
+fn command_exists(command: &str) -> bool {
+    let mut command_directories: Vec<PathBuf> = std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).collect())
+        .unwrap_or_default();
+
+    command_directories.extend([
+        home_dir().join(".local").join("bin"),
+        home_dir().join(".bun").join("bin"),
+        home_dir().join(".cargo").join("bin"),
+        home_dir().join(".opencode").join("bin"),
+        home_dir().join("Library").join("pnpm"),
+        PathBuf::from("/opt/homebrew/bin"),
+        PathBuf::from("/usr/local/bin"),
+        PathBuf::from("/usr/bin"),
+        PathBuf::from("/bin"),
+    ]);
+    command_directories.extend(login_shell_command_directories().iter().cloned());
+
+    let nvm_versions_path = home_dir().join(".nvm").join("versions").join("node");
+    if let Ok(entries) = fs::read_dir(nvm_versions_path) {
+        command_directories.extend(entries.flatten().map(|entry| entry.path().join("bin")));
+    }
+
+    command_directories
+        .iter()
+        .any(|path| path.join(command).is_file())
 }
 
 fn app_exists(app_name: &str) -> bool {
