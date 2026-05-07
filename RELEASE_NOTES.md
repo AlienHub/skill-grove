@@ -1,15 +1,16 @@
-# Skill Studio v0.1.1
+# Skill Studio v0.1.2
 
 Released: 2026-05-07
 
 ## Highlights
 
-- Built-in Agent skill directories are now scanned only when the matching app or CLI is actually installed.
-- Settings now separates custom directories, installed built-in Agents, and unavailable built-in Agents.
-- Skill details now include a native open-directory control that detects installed macOS apps and uses their system icons.
-- The open-directory menu supports Finder, installed IDEs, and installed editors such as Typora.
+- Added automatic GitHub Release update checks in the app settings page.
+- Added Tauri updater support so signed update packages can download, install, and relaunch the app.
+- Split Agent Skill scanning into its own sidebar entry, leaving app-level settings for version and update controls.
+- Updated the macOS release workflow to publish DMG installers plus signed updater artifacts.
 
 ## macOS
 
 - This release publishes a macOS DMG installer only.
 - Download the `.dmg` asset below and drag Skill Studio into Applications.
+- Future releases can be installed through the in-app updater after this version is installed.

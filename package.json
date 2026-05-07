@@ -1,6 +1,6 @@
 {
   "name": "skill-studio",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "description": "Standalone Skill Manager app",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "dmg": "tauri build --bundles dmg"
+    "dmg": "tauri build --bundles app,dmg"
   },
   "dependencies": {
     "@lobehub/icons": "^5.6.0",
