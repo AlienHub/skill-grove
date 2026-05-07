@@ -85,7 +85,7 @@
   --foreground-rgb: 38, 36, 42;             /* RGB for shadow borders */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
-  --accent: oklch(0.62 0.13 293);           /* purple - brand, Auto mode */
+  --accent: oklch(0.62 0.13 293);           /* brand accent */
   --accent-rgb: 104, 78, 133;               /* darkened RGB for shadow-tinted (70% of accent) */
   --info: oklch(0.75 0.16 70);              /* amber - warnings, Ask mode */
   --info-rgb: 180, 120, 40;                 /* RGB for shadow-tinted */
@@ -231,19 +231,19 @@
 
 /* Dark Mode */
 .dark {
-  /* === 6 BASE COLORS (must match DEFAULT_THEME.dark in theme.ts) === */
-  --background: oklch(0.145 0.015 270);
+  /* === 6 BASE COLORS === */
+  --background: oklch(0.12 0 0);
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
-  --surface: oklch(0.19 0.017 270);
-  --surface-muted: color-mix(in srgb, var(--foreground) 4%, var(--surface));
-  --surface-subtle: color-mix(in srgb, var(--foreground) 2.5%, var(--surface));
-  --foreground: oklch(0.95 0.01 270);
+  --surface: oklch(0.165 0 0);
+  --surface-muted: color-mix(in srgb, var(--foreground) 5%, var(--surface));
+  --surface-subtle: color-mix(in srgb, var(--foreground) 3%, var(--surface));
+  --foreground: oklch(0.92 0 0);
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
-  --foreground-rgb: 237, 236, 240;           /* RGB for shadow borders */
+  --foreground-rgb: 235, 235, 235;           /* RGB for shadow borders */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
-  --accent: oklch(0.65 0.22 293);            /* brighter purple in dark */
-  --accent-rgb: 130, 75, 185;               /* darkened RGB for shadow-tinted (70% of accent) */
+  --accent: oklch(0.78 0 0);                 /* neutral accent in dark mode */
+  --accent-rgb: 198, 198, 198;               /* RGB for shadow-tinted */
   --info: oklch(0.78 0.14 70);               /* amber */
   --info-rgb: 210, 155, 55;                  /* RGB for shadow-tinted */
   --success: oklch(0.60 0.17 145);           /* green */
@@ -252,8 +252,8 @@
   --destructive-rgb: 200, 70, 60;            /* RGB for shadow-tinted */
 
   /* === SHADOW OPACITY (stronger in dark mode for visibility) === */
-  --shadow-border-opacity: 0.15;
-  --shadow-blur-opacity: 0.12;
+  --shadow-border-opacity: 0.22;
+  --shadow-blur-opacity: 0.14;
 
   /* === MIX VARIANTS === */
   --foreground-1\.5: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
@@ -286,9 +286,9 @@
   --card-foreground: var(--foreground);
   --popover: var(--background);
   --popover-foreground: var(--foreground);
-  --border: oklch(from var(--foreground) l c h / 0.05);
-  --input: oklch(from var(--foreground) l c h / 0.1);
-  --ring: oklch(from var(--foreground) l c h / 0.25);
+  --border: oklch(from var(--foreground) l c h / 0.12);
+  --input: oklch(from var(--foreground) l c h / 0.16);
+  --ring: oklch(from var(--foreground) l c h / 0.32);
 
   /* Markdown list markers */
   --md-bullets: var(--foreground-50);
@@ -475,6 +475,7 @@ html[data-font="inter"] {
 
   html {
     font-size: var(--font-size-base);
+    background: var(--background);
   }
 
   html, body, #root {
@@ -484,7 +485,7 @@ html[data-font="inter"] {
 
   body {
     font-family: var(--font-default);
-    background: transparent;
+    background: var(--background);
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
