@@ -1,6 +1,6 @@
 # Skill Grove Roadmap
 
-> 当前目标：完成 v0.5「品牌与精致度」的第一版实现，将产品名收敛为 Skill Grove，并继续打磨个人本地 skills 资料库的安静质感。
+> 当前目标：完成 v0.5.1「skill 分享与内容治理」，让用户能把真实来源分享给其他 Agent，导出 ZIP 给外部分享，并把重复真实副本收敛为软链。
 >
 > 产品方向：不做企业控制台，不做 marketplace，不做复杂账号系统。先服务个人开发者整理自己的 AI 能力库，并逐步帮助用户理解这些 skill 如何进入对话上下文、如何被真实调用。
 
@@ -93,6 +93,13 @@
 - [ ] 打磨 macOS 原生感：titlebar、scroll、hover、selected state、keyboard shortcuts
 - [ ] 增加 Command Menu 或 Quick Switcher
 - [ ] 准备第一个面向个人用户的 polished release
+
+### v0.5.1：skill 分享与内容治理
+
+- [x] 支持将当前真实来源以软链接形式分享到其他已配置 Agent
+- [x] 支持将当前真实来源直接打包为 ZIP 下载，用于手动分享
+- [x] 支持把内容相同、来源位置不同、且不是软链的 skill 切换为软链模式
+- [x] 转换为软链前将原真实目录放入系统废纸篓，避免不可恢复删除
 
 ### v0.6：Agent Context Catalog
 

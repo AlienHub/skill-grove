@@ -68,6 +68,16 @@ function preferredReleaseAsset(assets: GitHubReleaseAsset[]) {
   return supportedAssets.find((asset) => asset.name.toLowerCase().endsWith('.dmg')) ?? supportedAssets[0] ?? null
 }
 
+function safeZipFileName(value: string) {
+  const name = value
+    .trim()
+    .replace(/\.zip$/i, '')
+    .replace(/[/:*?"<>|\\]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return `${name || 'skill'}.zip`
+}
+
 async function responseError(response: Response, fallback: string) {
   try {
     const body = (await response.json()) as { error?: unknown }
@@ -167,6 +177,90 @@ export async function removeSkillSource(skillDirectory: string) {
   }
 
   return (await response.json()) as SkillManagerState
+}
+
+export async function createSkillSymlink(skillDirectory: string, targetSourceDirectory: string) {
+  if ('__TAURI_INTERNALS__' in window) {
+    return await invoke<SkillManagerState>('create_skill_symlink', { skillDirectory, targetSourceDirectory })
+  }
+
+  const response = await fetch(`${skillManagerApiBase}/create-symlink`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ skillDirectory, targetSourceDirectory }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, 'Failed to create symlink'))
+  }
+
+  return (await response.json()) as SkillManagerState
+}
+
+export async function convertSkillSourceToSymlink(skillDirectory: string, targetSkillDirectory: string) {
+  if ('__TAURI_INTERNALS__' in window) {
+    return await invoke<SkillManagerState>('convert_skill_source_to_symlink', { skillDirectory, targetSkillDirectory })
+  }
+
+  const response = await fetch(`${skillManagerApiBase}/convert-to-symlink`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ skillDirectory, targetSkillDirectory }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, 'Failed to convert source'))
+  }
+
+  return (await response.json()) as SkillManagerState
+}
+
+export async function exportSkillZip(skillDirectory: string, fileName: string) {
+  const downloadName = safeZipFileName(fileName)
+
+  if ('__TAURI_INTERNALS__' in window) {
+    const { save } = await import('@tauri-apps/plugin-dialog')
+    const outputPath = await save({
+      title: 'Export Skill ZIP',
+      defaultPath: downloadName,
+      filters: [{ name: 'ZIP', extensions: ['zip'] }],
+    })
+
+    if (!outputPath) {
+      return false
+    }
+
+    await invoke('export_skill_zip', { skillDirectory, outputPath })
+    return true
+  }
+
+  const response = await fetch(`${skillManagerApiBase}/export-zip`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ skillDirectory }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, 'Failed to export ZIP'))
+  }
+
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = downloadName
+  anchor.style.display = 'none'
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  window.URL.revokeObjectURL(url)
+  return true
 }
 
 export async function openExternalUrl(url: string) {

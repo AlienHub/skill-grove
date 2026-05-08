@@ -38,20 +38,28 @@ function SkillInsightNotes({
 }
 
 export function SkillDetailPanel({
+  configuredDirectories,
   isPinned,
   openDirectoryTargets,
   recentChanges,
   selectedSkill,
   selectedSkillGroup,
+  onCreateSymlink,
+  onConvertToSymlink,
+  onExportZip,
   onRemoveSource,
   onSelectSkill,
   onTogglePinned,
 }: {
+  configuredDirectories: string[]
   isPinned: boolean
   openDirectoryTargets: DirectoryOpenTarget[]
   recentChanges: LibraryChange[]
   selectedSkill: Skill
   selectedSkillGroup: SkillGroup
+  onCreateSymlink: (skill: Skill, targetSourceDirectory: string) => Promise<void>
+  onConvertToSymlink: (skill: Skill, targetSkill: Skill) => Promise<void>
+  onExportZip: (skill: Skill) => Promise<void>
   onRemoveSource: (skill: Skill) => Promise<void>
   onSelectSkill: (skillId: string) => void
   onTogglePinned: () => void
@@ -112,9 +120,14 @@ export function SkillDetailPanel({
           />
           <div className={selectedSkillGroup.sourceCount > 1 ? 'mt-3' : undefined}>
             <SkillSourceTable
+              configuredDirectories={configuredDirectories}
               openDirectoryTargets={openDirectoryTargets}
               skill={selectedSkill}
+              skillGroup={selectedSkillGroup}
               sourceCount={selectedSkillGroup.sourceCount}
+              onCreateSymlink={onCreateSymlink}
+              onConvertToSymlink={onConvertToSymlink}
+              onExportZip={onExportZip}
               onRemoveSource={onRemoveSource}
             />
           </div>

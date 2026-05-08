@@ -1,19 +1,22 @@
 import { defineConfig, type Plugin, type PreviewServer, type ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { dirname, resolve, relative } from 'path'
+import { basename, dirname, resolve, relative } from 'path'
 import { fileURLToPath } from 'url'
 import { spawnSync } from 'child_process'
 import { createHash } from 'crypto'
 import {
   existsSync,
   lstatSync,
+  mkdtempSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   realpathSync,
   renameSync,
+  rmSync,
   statSync,
+  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from 'fs'
@@ -635,6 +638,21 @@ function ensureSkillSourceCanBeChanged(skillDirectory: string) {
   throw new Error('只允许处理当前已配置扫描目录中的来源。')
 }
 
+function ensureRealSkillSource(skillDirectory: string) {
+  let stats
+  try {
+    stats = lstatSync(skillDirectory)
+  } catch (error) {
+    throw new Error(`来源不存在或无法访问：${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  if (stats.isSymbolicLink()) {
+    throw new Error('软链接来源不支持分享，请从真实来源操作。')
+  }
+
+  ensureSkillSourceCanBeChanged(skillDirectory)
+}
+
 function uniqueTrashPath(fileName: string) {
   const trashDirectory = resolve(homedir(), '.Trash')
   mkdirSync(trashDirectory, { recursive: true })
@@ -662,10 +680,153 @@ function moveSourceToTrash(skillDirectory: string) {
     throw new Error('来源目录名称不可用。')
   }
 
+  const destination = uniqueTrashPath(fileName)
   try {
-    renameSync(skillDirectory, uniqueTrashPath(fileName))
+    renameSync(skillDirectory, destination)
   } catch (error) {
     throw new Error(`移动到废纸篓失败：${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  return destination
+}
+
+function createDirectorySymlink(targetDirectory: string, linkDirectory: string) {
+  if (existsSync(linkDirectory)) {
+    throw new Error('目标位置已经存在。')
+  }
+
+  mkdirSync(dirname(linkDirectory), { recursive: true })
+  try {
+    symlinkSync(targetDirectory, linkDirectory, 'dir')
+  } catch (error) {
+    throw new Error(`创建软链接失败：${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+function ensureTargetSourceDirectory(targetSourceDirectory: string) {
+  if (!existsSync(targetSourceDirectory) || !statSync(targetSourceDirectory).isDirectory()) {
+    throw new Error('目标 Agent 目录不存在。')
+  }
+
+  const resolvedTargetSourceDirectory = realpathSync(targetSourceDirectory)
+  for (const configuredDirectory of readConfiguredDirectories()) {
+    try {
+      if (resolvedTargetSourceDirectory === realpathSync(configuredDirectory)) {
+        return
+      }
+    } catch {
+      // Ignore unavailable configured directories.
+    }
+  }
+
+  throw new Error('只能分享到当前已配置的 Agent 目录。')
+}
+
+function skillRelativeLocation(skillDirectory: string) {
+  for (const configuredDirectory of readConfiguredDirectories()) {
+    const relativeLocation = relative(configuredDirectory, skillDirectory)
+    if (relativeLocation && !relativeLocation.startsWith('..') && !relativeLocation.startsWith('/')) {
+      return relativeLocation
+    }
+  }
+
+  throw new Error('无法确认 skill 在扫描目录中的相对位置。')
+}
+
+function skillFileHash(skillDirectory: string) {
+  try {
+    return stableContentHash(readFileSync(resolve(skillDirectory, 'SKILL.md'), 'utf8'))
+  } catch (error) {
+    throw new Error(`无法读取 SKILL.md：${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+function createSkillSymlinkForApi(skillDirectory: string, targetSourceDirectory: string) {
+  const [normalizedSkillDirectory] = normalizeConfiguredDirectories([skillDirectory])
+  const [normalizedTargetSourceDirectory] = normalizeConfiguredDirectories([targetSourceDirectory])
+  if (!normalizedSkillDirectory) {
+    throw new Error('目录不能为空。')
+  }
+  if (!normalizedTargetSourceDirectory) {
+    throw new Error('目标 Agent 目录不能为空。')
+  }
+
+  ensureRealSkillSource(normalizedSkillDirectory)
+  ensureTargetSourceDirectory(normalizedTargetSourceDirectory)
+
+  const realSkillDirectory = realpathSync(normalizedSkillDirectory)
+  const linkDirectory = resolve(normalizedTargetSourceDirectory, skillRelativeLocation(normalizedSkillDirectory))
+  createDirectorySymlink(realSkillDirectory, linkDirectory)
+  return loadSkillManagerState()
+}
+
+function convertSkillSourceToSymlinkForApi(skillDirectory: string, targetSkillDirectory: string) {
+  const [normalizedSkillDirectory] = normalizeConfiguredDirectories([skillDirectory])
+  const [normalizedTargetSkillDirectory] = normalizeConfiguredDirectories([targetSkillDirectory])
+  if (!normalizedSkillDirectory) {
+    throw new Error('目录不能为空。')
+  }
+  if (!normalizedTargetSkillDirectory) {
+    throw new Error('目标 skill 目录不能为空。')
+  }
+
+  const stats = ensureSkillSourceCanBeChanged(normalizedSkillDirectory)
+  if (stats.isSymbolicLink()) {
+    throw new Error('当前来源已经是软链接。')
+  }
+
+  ensureSkillSourceCanBeChanged(normalizedTargetSkillDirectory)
+  if (skillFileHash(normalizedSkillDirectory) !== skillFileHash(normalizedTargetSkillDirectory)) {
+    throw new Error('只有内容完全相同的 skill 才能切换为软链模式。')
+  }
+
+  const realTargetDirectory = realpathSync(normalizedTargetSkillDirectory)
+  if (realTargetDirectory === realpathSync(normalizedSkillDirectory)) {
+    throw new Error('目标已经指向同一个真实目录。')
+  }
+
+  const trashedDirectory = moveSourceToTrash(normalizedSkillDirectory)
+  try {
+    createDirectorySymlink(realTargetDirectory, normalizedSkillDirectory)
+  } catch (error) {
+    try {
+      renameSync(trashedDirectory, normalizedSkillDirectory)
+    } catch {
+      // Keep the original error; the source remains recoverable in Trash.
+    }
+    throw error
+  }
+
+  return loadSkillManagerState()
+}
+
+function exportSkillZipForApi(skillDirectory: string) {
+  const [normalizedDirectory] = normalizeConfiguredDirectories([skillDirectory])
+  if (!normalizedDirectory) {
+    throw new Error('目录不能为空。')
+  }
+
+  ensureRealSkillSource(normalizedDirectory)
+  const realSkillDirectory = realpathSync(normalizedDirectory)
+  const temporaryDirectory = mkdtempSync(resolve(tmpdir(), 'skill-grove-export-'))
+  const outputPath = resolve(temporaryDirectory, `${basename(realSkillDirectory) || 'skill'}.zip`)
+
+  try {
+    const result = spawnSync('ditto', ['-c', '-k', '--keepParent', realSkillDirectory, outputPath], {
+      encoding: 'utf8',
+    })
+
+    if (result.error) {
+      throw result.error
+    }
+
+    if (result.status !== 0) {
+      throw new Error(result.stderr || result.stdout || 'Failed to export ZIP')
+    }
+
+    return readFileSync(outputPath)
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true })
   }
 }
 
@@ -976,6 +1137,72 @@ function installSkillManagerApi(server: ViteDevServer) {
       return
     }
 
+    if (url === `${SKILL_MANAGER_API_BASE}/create-symlink` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown; targetSourceDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+        if (typeof body.targetSourceDirectory !== 'string') {
+          sendJson(res, 400, { error: 'targetSourceDirectory must be a string' })
+          return
+        }
+
+        sendJson(res, 200, createSkillSymlinkForApi(body.skillDirectory, body.targetSourceDirectory))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to create symlink',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/convert-to-symlink` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown; targetSkillDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+        if (typeof body.targetSkillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'targetSkillDirectory must be a string' })
+          return
+        }
+
+        sendJson(res, 200, convertSkillSourceToSymlinkForApi(body.skillDirectory, body.targetSkillDirectory))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to convert source',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/export-zip` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+
+        const zipBuffer = exportSkillZipForApi(body.skillDirectory)
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/zip')
+        res.setHeader('Content-Length', String(zipBuffer.byteLength))
+        res.end(zipBuffer)
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to export ZIP',
+        })
+      }
+
+      return
+    }
+
     next()
   })
 }
@@ -1073,6 +1300,72 @@ function installSkillManagerPreviewApi(server: PreviewServer) {
       } catch (error) {
         sendJson(res, 400, {
           error: error instanceof Error ? error.message : 'Failed to remove source',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/create-symlink` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown; targetSourceDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+        if (typeof body.targetSourceDirectory !== 'string') {
+          sendJson(res, 400, { error: 'targetSourceDirectory must be a string' })
+          return
+        }
+
+        sendJson(res, 200, createSkillSymlinkForApi(body.skillDirectory, body.targetSourceDirectory))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to create symlink',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/convert-to-symlink` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown; targetSkillDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+        if (typeof body.targetSkillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'targetSkillDirectory must be a string' })
+          return
+        }
+
+        sendJson(res, 200, convertSkillSourceToSymlinkForApi(body.skillDirectory, body.targetSkillDirectory))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to convert source',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/export-zip` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+
+        const zipBuffer = exportSkillZipForApi(body.skillDirectory)
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/zip')
+        res.setHeader('Content-Length', String(zipBuffer.byteLength))
+        res.end(zipBuffer)
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to export ZIP',
         })
       }
 

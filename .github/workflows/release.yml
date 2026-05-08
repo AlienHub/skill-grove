@@ -58,7 +58,13 @@ jobs:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseName: Skill Grove ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseBody: |
-            Skill Grove release.
+            Skill Grove v0.5.1 adds skill sharing, ZIP export, and soft-link content governance.
+
+            Highlights:
+            - Share a real skill source to another configured Agent by creating a soft link.
+            - Export the current real skill source as a ZIP package for manual sharing.
+            - Convert same-content duplicate real directories into soft-link entries.
+            - Move the original real directory to Trash before conversion so the operation remains locally recoverable.
 
             Download the macOS DMG installer from the assets below. Signed updater artifacts are also attached for in-app updates.
           releaseDraft: false

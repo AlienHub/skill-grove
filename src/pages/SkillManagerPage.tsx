@@ -11,8 +11,11 @@ import {
   installUpdateAndRelaunch,
   openExternalUrl,
   removeSkillSource,
+  createSkillSymlink,
+  exportSkillZip,
   saveConfiguredDirectories,
   saveSourceIcon,
+  convertSkillSourceToSymlink,
 } from '../skill-manager/api'
 import { buildSkillGroups } from '../skill-manager/skillGrouping'
 import { useAppPreferences } from '../skill-manager/preferences'
@@ -293,6 +296,20 @@ export function SkillManagerPage() {
     setSkillState(nextState)
   }, [])
 
+  const handleCreateSkillSymlink = useCallback(async (skill: Skill, targetSourceDirectory: string) => {
+    const nextState = await createSkillSymlink(skill.skillDirectory, targetSourceDirectory)
+    setSkillState(nextState)
+  }, [])
+
+  const handleConvertSkillSourceToSymlink = useCallback(async (skill: Skill, targetSkill: Skill) => {
+    const nextState = await convertSkillSourceToSymlink(skill.skillDirectory, targetSkill.skillDirectory)
+    setSkillState(nextState)
+  }, [])
+
+  const handleExportSkillZip = useCallback(async (skill: Skill) => {
+    await exportSkillZip(skill.skillDirectory, skill.slug || skill.name)
+  }, [])
+
   return (
     <div className="h-screen overflow-hidden bg-background text-[14px] text-foreground">
       <main className="mx-auto h-screen max-w-[1440px] px-4 py-5 sm:px-6">
@@ -357,13 +374,17 @@ export function SkillManagerPage() {
               />
             ) : selectedSkill && selectedSkillGroup ? (
               <SkillDetailPanel
+                configuredDirectories={skillState.configuredDirectories}
                 openDirectoryTargets={skillState.openDirectoryTargets}
                 recentChanges={libraryVisitState.changesBySkillId[selectedSkillGroup.id] ?? []}
                 isPinned={libraryActivity.pinnedSkillIds.includes(selectedSkillGroup.id)}
                 selectedSkill={selectedSkill}
                 selectedSkillGroup={selectedSkillGroup}
+                onCreateSymlink={handleCreateSkillSymlink}
+                onExportZip={handleExportSkillZip}
                 onRemoveSource={handleRemoveSkillSource}
                 onSelectSkill={setSelectedSkillId}
+                onConvertToSymlink={handleConvertSkillSourceToSymlink}
                 onTogglePinned={() => handleTogglePinnedSkill(selectedSkillGroup)}
               />
             ) : null}

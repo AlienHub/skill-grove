@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{
     collections::{HashMap, HashSet},
-    fs,
+    fs::{self, File},
     hash::{Hash, Hasher},
+    io::{Read, Write},
     path::{Path, PathBuf},
     process::Command,
     sync::OnceLock,
@@ -976,6 +977,17 @@ fn ensure_skill_source_can_be_changed(skill_directory: &Path) -> Result<(), Stri
     Err("只允许处理当前已配置扫描目录中的来源。".to_string())
 }
 
+fn ensure_real_skill_source(skill_directory: &Path) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(skill_directory)
+        .map_err(|error| format!("来源不存在或无法访问：{error}"))?;
+
+    if metadata.file_type().is_symlink() {
+        return Err("软链接来源不支持分享，请从真实来源操作。".to_string());
+    }
+
+    ensure_skill_source_can_be_changed(skill_directory)
+}
+
 fn unique_trash_path(trash_directory: &Path, file_name: &str) -> PathBuf {
     let original = trash_directory.join(file_name);
     if !original.exists() {
@@ -1004,7 +1016,7 @@ fn unique_trash_path(trash_directory: &Path, file_name: &str) -> PathBuf {
     original
 }
 
-fn move_source_to_trash(skill_directory: &Path) -> Result<(), String> {
+fn move_source_to_trash(skill_directory: &Path) -> Result<PathBuf, String> {
     let file_name = skill_directory
         .file_name()
         .and_then(|value| value.to_str())
@@ -1015,7 +1027,173 @@ fn move_source_to_trash(skill_directory: &Path) -> Result<(), String> {
     let destination = unique_trash_path(&trash_directory, file_name);
 
     fs::rename(skill_directory, &destination)
-        .map_err(|error| format!("移动到废纸篓失败：{error}"))
+        .map_err(|error| format!("移动到废纸篓失败：{error}"))?;
+
+    Ok(destination)
+}
+
+fn create_directory_symlink(target_directory: &Path, link_directory: &Path) -> Result<(), String> {
+    if link_directory.exists() || fs::symlink_metadata(link_directory).is_ok() {
+        return Err("目标位置已经存在。".to_string());
+    }
+
+    let Some(parent) = link_directory.parent() else {
+        return Err("无法确认软链所在目录。".to_string());
+    };
+    fs::create_dir_all(parent).map_err(|error| format!("无法创建目标目录：{error}"))?;
+
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target_directory, link_directory)
+            .map_err(|error| format!("创建软链接失败：{error}"))
+    }
+
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::symlink_dir(target_directory, link_directory)
+            .map_err(|error| format!("创建软链接失败：{error}"))
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = target_directory;
+        let _ = link_directory;
+        Err("当前系统不支持创建目录软链接。".to_string())
+    }
+}
+
+fn ensure_target_source_directory(target_source_directory: &Path) -> Result<(), String> {
+    if !target_source_directory.is_dir() {
+        return Err("目标 Agent 目录不存在。".to_string());
+    }
+
+    let target_source_directory = target_source_directory
+        .canonicalize()
+        .map_err(|error| format!("无法确认目标 Agent 目录：{error}"))?;
+
+    for configured_directory in read_configured_directories() {
+        let configured_path = PathBuf::from(configured_directory);
+        let Ok(configured_path) = configured_path.canonicalize() else {
+            continue;
+        };
+
+        if target_source_directory == configured_path {
+            return Ok(());
+        }
+    }
+
+    Err("只能分享到当前已配置的 Agent 目录。".to_string())
+}
+
+fn skill_relative_location(skill_directory: &Path) -> Result<PathBuf, String> {
+    for configured_directory in read_configured_directories() {
+        let configured_path = PathBuf::from(configured_directory);
+        if let Ok(relative_path) = skill_directory.strip_prefix(&configured_path) {
+            if relative_path.as_os_str().is_empty() {
+                return Err("不能直接分享扫描根目录。".to_string());
+            }
+
+            return Ok(relative_path.to_path_buf());
+        }
+    }
+
+    Err("无法确认 skill 在扫描目录中的相对位置。".to_string())
+}
+
+fn skill_file_hash(skill_directory: &Path) -> Result<String, String> {
+    let skill_file = skill_directory.join("SKILL.md");
+    let source = fs::read_to_string(&skill_file)
+        .map_err(|error| format!("无法读取 SKILL.md：{error}"))?;
+
+    Ok(stable_content_hash(&source))
+}
+
+fn zip_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+fn add_directory_to_zip(
+    zip: &mut zip::ZipWriter<File>,
+    base_directory: &Path,
+    current_directory: &Path,
+    root_name: &str,
+    options: zip::write::SimpleFileOptions,
+) -> Result<(), String> {
+    let entries = fs::read_dir(current_directory)
+        .map_err(|error| format!("读取目录失败：{error}"))?;
+
+    for entry in entries.flatten() {
+        let entry_path = entry.path();
+        let relative_path = entry_path
+            .strip_prefix(base_directory)
+            .map_err(|error| format!("生成压缩路径失败：{error}"))?;
+        let archive_path = Path::new(root_name).join(relative_path);
+        let archive_name = zip_path(&archive_path);
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("读取文件类型失败：{error}"))?;
+
+        if file_type.is_dir() {
+            zip.add_directory(format!("{archive_name}/"), options)
+                .map_err(|error| format!("写入压缩目录失败：{error}"))?;
+            add_directory_to_zip(zip, base_directory, &entry_path, root_name, options)?;
+            continue;
+        }
+
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        if file_type.is_file() {
+            zip.start_file(archive_name, options)
+                .map_err(|error| format!("写入压缩文件失败：{error}"))?;
+            let mut source_file = File::open(&entry_path)
+                .map_err(|error| format!("读取文件失败：{error}"))?;
+            let mut buffer = Vec::new();
+            source_file
+                .read_to_end(&mut buffer)
+                .map_err(|error| format!("读取文件失败：{error}"))?;
+            zip.write_all(&buffer)
+                .map_err(|error| format!("写入压缩文件失败：{error}"))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn export_skill_zip_to_path(skill_directory: &Path, output_path: &Path) -> Result<(), String> {
+    ensure_real_skill_source(skill_directory)?;
+    let real_skill_directory = skill_directory
+        .canonicalize()
+        .map_err(|error| format!("无法确认真实 skill 目录：{error}"))?;
+    let root_name = real_skill_directory
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("skill");
+
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| format!("无法创建导出目录：{error}"))?;
+    }
+
+    let file = File::create(output_path)
+        .map_err(|error| format!("无法创建 ZIP 文件：{error}"))?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored);
+
+    zip.add_directory(format!("{root_name}/"), options)
+        .map_err(|error| format!("写入压缩目录失败：{error}"))?;
+    add_directory_to_zip(
+        &mut zip,
+        &real_skill_directory,
+        &real_skill_directory,
+        root_name,
+        options,
+    )?;
+    zip.finish()
+        .map_err(|error| format!("完成 ZIP 文件失败：{error}"))?;
+
+    Ok(())
 }
 
 fn get_agent_info_for_directory(directory: &Path) -> (String, String) {
@@ -1303,6 +1481,102 @@ fn remove_skill_source(skill_directory: String) -> Result<SkillManagerState, Str
 }
 
 #[tauri::command]
+fn create_skill_symlink(
+    skill_directory: String,
+    target_source_directory: String,
+) -> Result<SkillManagerState, String> {
+    let normalized_skill_directories = normalize_configured_directories(vec![skill_directory]);
+    let Some(skill_directory) = normalized_skill_directories.first() else {
+        return Err("目录不能为空。".to_string());
+    };
+    let skill_directory = Path::new(skill_directory);
+
+    let normalized_target_directories =
+        normalize_configured_directories(vec![target_source_directory]);
+    let Some(target_source_directory) = normalized_target_directories.first() else {
+        return Err("目标 Agent 目录不能为空。".to_string());
+    };
+    let target_source_directory = Path::new(target_source_directory);
+
+    ensure_real_skill_source(skill_directory)?;
+    ensure_target_source_directory(target_source_directory)?;
+
+    let real_skill_directory = skill_directory
+        .canonicalize()
+        .map_err(|error| format!("无法确认真实 skill 目录：{error}"))?;
+    let relative_location = skill_relative_location(skill_directory)?;
+    let link_directory = target_source_directory.join(relative_location);
+
+    create_directory_symlink(&real_skill_directory, &link_directory)?;
+    Ok(load_skill_manager_state())
+}
+
+#[tauri::command]
+fn convert_skill_source_to_symlink(
+    skill_directory: String,
+    target_skill_directory: String,
+) -> Result<SkillManagerState, String> {
+    let normalized_skill_directories = normalize_configured_directories(vec![skill_directory]);
+    let Some(skill_directory) = normalized_skill_directories.first() else {
+        return Err("目录不能为空。".to_string());
+    };
+    let skill_directory = Path::new(skill_directory);
+
+    let normalized_target_directories =
+        normalize_configured_directories(vec![target_skill_directory]);
+    let Some(target_skill_directory) = normalized_target_directories.first() else {
+        return Err("目标 skill 目录不能为空。".to_string());
+    };
+    let target_skill_directory = Path::new(target_skill_directory);
+
+    ensure_skill_source_can_be_changed(skill_directory)?;
+    let metadata = fs::symlink_metadata(skill_directory)
+        .map_err(|error| format!("来源不存在或无法访问：{error}"))?;
+    if metadata.file_type().is_symlink() {
+        return Err("当前来源已经是软链接。".to_string());
+    }
+
+    ensure_skill_source_can_be_changed(target_skill_directory)?;
+    let current_hash = skill_file_hash(skill_directory)?;
+    let target_hash = skill_file_hash(target_skill_directory)?;
+    if current_hash != target_hash {
+        return Err("只有内容完全相同的 skill 才能切换为软链模式。".to_string());
+    }
+
+    let real_target_directory = target_skill_directory
+        .canonicalize()
+        .map_err(|error| format!("无法确认目标真实目录：{error}"))?;
+    let real_current_directory = skill_directory
+        .canonicalize()
+        .map_err(|error| format!("无法确认当前真实目录：{error}"))?;
+    if real_target_directory == real_current_directory {
+        return Err("目标已经指向同一个真实目录。".to_string());
+    }
+
+    let trashed_directory = move_source_to_trash(skill_directory)?;
+    if let Err(error) = create_directory_symlink(&real_target_directory, skill_directory) {
+        let _ = fs::rename(&trashed_directory, skill_directory);
+        return Err(error);
+    }
+
+    Ok(load_skill_manager_state())
+}
+
+#[tauri::command]
+fn export_skill_zip(skill_directory: String, output_path: String) -> Result<(), String> {
+    let normalized_directories = normalize_configured_directories(vec![skill_directory]);
+    let Some(normalized_directory) = normalized_directories.first() else {
+        return Err("目录不能为空。".to_string());
+    };
+
+    if output_path.trim().is_empty() {
+        return Err("导出路径不能为空。".to_string());
+    }
+
+    export_skill_zip_to_path(Path::new(normalized_directory), Path::new(&output_path))
+}
+
+#[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
     let url = url.trim();
     if !is_allowed_external_url(url) {
@@ -1340,6 +1614,9 @@ pub fn run() {
             save_source_icon,
             open_skill_directory,
             remove_skill_source,
+            create_skill_symlink,
+            convert_skill_source_to_symlink,
+            export_skill_zip,
             open_external_url,
         ])
         .run(tauri::generate_context!())

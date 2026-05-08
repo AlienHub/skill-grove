@@ -78,7 +78,7 @@ export function LibraryHomePanel({
 
             <div className="mt-9 flex flex-wrap items-center gap-2">
               <button
-                className="rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
+                className="cursor-pointer rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={!firstSkillGroup}
                 onClick={() => firstSkillGroup && onSelectSkillGroup(firstSkillGroup)}
                 type="button"
@@ -86,14 +86,14 @@ export function LibraryHomePanel({
                 {t('home.openLibrary')}
               </button>
               <button
-                className="rounded-[8px] bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground/64 shadow-minimal-flat transition-colors hover:text-foreground"
+                className="cursor-pointer rounded-[8px] bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground/64 shadow-minimal-flat transition-colors hover:text-foreground"
                 onClick={onOpenAgentSkillConfig}
                 type="button"
               >
                 {t('app.agentSkillConfig')}
               </button>
               <button
-                className="rounded-[8px] bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground/64 shadow-minimal-flat transition-colors hover:text-foreground"
+                className="cursor-pointer rounded-[8px] bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground/64 shadow-minimal-flat transition-colors hover:text-foreground"
                 onClick={onOpenSettings}
                 type="button"
               >
