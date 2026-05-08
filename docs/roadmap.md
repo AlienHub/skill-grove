@@ -1,8 +1,8 @@
 # Skill Studio / Glade Roadmap
 
-> 当前目标：把 v0.2 的来源管理基础打稳后，进入 v0.2.1 的主题与语言基础建设，让产品可以自然服务中英文用户，并具备完整的明暗外观。
+> 当前目标：完成 v0.3「回访理由与轻量整理」的第一版实现，让用户回到 Skill Studio 时能看到最近变化、轻量筛选和温和建议。
 >
-> 产品方向：不做企业控制台，不做 marketplace，不做复杂账号系统。先服务个人开发者整理自己的 AI 能力库。
+> 产品方向：不做企业控制台，不做 marketplace，不做复杂账号系统。先服务个人开发者整理自己的 AI 能力库，并逐步帮助用户理解这些 skill 如何进入对话上下文、如何被真实调用。
 
 ---
 
@@ -47,14 +47,28 @@
 - [x] 覆盖关键页面文案：技能库侧栏、详情页、来源切换、来源操作、设置、更新、空状态、错误提示
 - [ ] 做双语与双主题验收：至少检查 4 组组合（中文浅色、中文深色、英文浅色、英文深色）
 
+### v0.2.2：v0.3 设计规划
+
+- [x] 明确 v0.3 的产品目标：给用户一个回访理由，但不把首页做成 Dashboard
+- [x] 将 Since Last Visit 定义为本地快照 diff，而不是会话监控或云同步
+- [x] 规划轻量 Home / Status 的信息密度和文案
+- [x] 规划轻量筛选：全部、多来源、有变体、最近变更、值得看看，并默认隐藏在筛选菜单中
+- [x] 规划 Worth a Look / Suggestions 的第一批规则和非告警式文案
+- [x] 拆出 v0.3.0 / v0.3.1 / v0.3.2 的实现切片
+
 ### v0.3：回访理由与轻量整理
 
-- [ ] 增加 Since Last Visit 本地快照
-- [ ] 展示上次打开后的变化：新增 skill、移除 skill、内容修改、来源变化、变体变化
-- [ ] 在 Library 顶部增加轻量 Welcome / Status strip，而不是 Dashboard
-- [ ] 增加轻量筛选：全部、多来源、有变体、最近变更、值得看看
-- [ ] 增加 Worth a Look / Suggestions 机制
-- [ ] 增加 broken symlink、内容不一致、描述缺失、SKILL.md 过长等轻量提示
+- [x] v0.3.0：增加 Since Last Visit 本地快照
+- [x] v0.3.0：展示上次打开后的变化：新增 skill、移除 skill、内容修改、来源变化、变体变化
+- [x] v0.3.0：增加轻量 Home 页面承载 Welcome / Status / 最近变化，而不是 Dashboard
+- [x] v0.3.1：增加轻量筛选：全部、多来源、有变体、最近变更、值得看看，并默认收进搜索旁的筛选菜单
+- [x] v0.3.1：将最近变化和建议接入左侧列表排序 / filter state
+- [x] v0.3.2：增加 Worth a Look / Suggestions 机制
+- [ ] v0.3.2：增加 broken symlink、内容不一致、描述缺失、SKILL.md 过长等轻量提示
+  - [x] 内容不一致
+  - [x] 描述缺失
+  - [x] SKILL.md 过长
+  - [ ] broken symlink（需要扫描器记录无法解析的软链接）
 
 ### v0.4：阅读与整理体验打磨
 
@@ -74,6 +88,19 @@
 - [ ] 打磨 macOS 原生感：titlebar、scroll、hover、selected state、keyboard shortcuts
 - [ ] 增加 Command Menu 或 Quick Switcher
 - [ ] 准备第一个面向个人用户的 polished release
+
+### v0.6：Agent Context Catalog
+
+- [ ] v0.6.0：增加 Agent 视角的预计常驻 catalog token 统计
+- [ ] 只统计 `name`、`description`、`when_to_use`、`location` / 简短引用元信息，不统计完整 `SKILL.md`
+- [ ] 按 Agent 展示预计常驻 skill 数量、预计常驻 tokens、已确认 / 未确认 / 关闭自动调用拆分
+- [ ] 识别 `disable-model-invocation` 与等价字段，展示哪些 skill 不进入模型自动发现 catalog
+- [ ] 增加 provider capability matrix，标注每个 Agent 对自动发现、禁用模型调用、用户手动调用等字段的支持程度
+- [ ] 展示 Top catalog cost skill 列表，帮助用户理解哪些 skill 的常驻描述最重
+- [ ] 在 skill 详情页展示该 skill 在各 Agent 下的 catalog 状态和预计常驻 token
+- [ ] v0.6.1：细化 provider 支持矩阵、路径条件、字段兼容和可信度提示
+- [ ] v0.6.2：再考虑本地会话数据里的 Skill Usage Rollup
+- [ ] 第一版只读分析，不自动修改 skill frontmatter
 
 ---
 
@@ -234,18 +261,22 @@ Preferences
 技能库                         243
 81 个存在多个来源
 
-[全部] [多来源] [有变体] [最近]
-
-搜索名称、描述或路径
+搜索名称、描述或路径  [筛选]
 ```
 
 不要做大 Dashboard，不要做统计卡片墙。
 
-Library 顶部可以有轻量 welcome/status：
+Home 页面可以承载轻量 welcome/status 和最近变化：
 
 ```text
 上次打开后，有 2 个技能发生变化。
-[查看变化]
+
+最近变化
+- 新增 skill
+- 内容修改
+
+值得看看
+- 有多个内容版本
 ```
 
 或者：
@@ -623,11 +654,387 @@ Since last visit
 上次打开后
 ```
 
+### 7.4 v0.3 设计主线
+
+v0.3 的核心不是「统计更多」，而是回答用户回到 app 时的两个问题：
+
+```text
+有什么变了吗？
+有什么值得我顺手整理一下吗？
+```
+
+这两个问题都应该保持轻量：
+
+- 先展示一句状态，而不是打开一个 Dashboard
+- 先给筛选入口，而不是给复杂任务流
+- 先解释变化和建议，不自动修改内容
+- 所有判断只基于本地扫描结果和本地快照
+
+### 7.5 Home / Status
+
+增加一个轻量 Home 页面承载回访理由。它不是 Dashboard，而是打开 app 后的安静入口：展示欢迎状态、最近变化、值得看看，并允许用户点进具体 skill。
+
+有变化时：
+
+```text
+上次打开后，3 个技能发生变化。
+
+最近变化
+- dws 内容发生变化
+- ui-review 新增了一个来源
+```
+
+没有变化时：
+
+```text
+你的技能库看起来很干净。
+```
+
+有建议但没有最近变化时：
+
+```text
+有 4 个技能值得看看。
+
+值得看看
+- dws 有 2 个内容版本
+- deploy-helper 缺少描述
+```
+
+Home 最多承载：
+
+- 一句摘要
+- 最近变化列表
+- 值得看看列表
+- 弱化的更新时间 / 扫描状态
+
+不承载：
+
+- 多张统计卡
+- 趋势图
+- 告警计数墙
+- 批量修复入口
+
+### 7.6 快照与 Diff 口径
+
+v0.3.0 保存最近一次稳定 scan snapshot，用当前 scan result 与上一份 snapshot 做 diff。
+
+建议快照最小字段：
+
+- skill name
+- description fingerprint
+- variant hash 列表
+- source path 列表
+- source agent / label
+- symlink 状态与 target path
+- `SKILL.md` mtime / size / content hash
+- snapshot schema version
+
+Diff 输出不直接绑定 UI，先形成中间结果：
+
+```ts
+type LibraryChange =
+  | { type: "skill-added"; skillName: string }
+  | { type: "skill-removed"; skillName: string }
+  | { type: "content-changed"; skillName: string; previousHash: string; currentHash: string }
+  | { type: "source-added"; skillName: string; sourcePath: string }
+  | { type: "source-removed"; skillName: string; sourcePath: string }
+  | { type: "variant-count-changed"; skillName: string; previousCount: number; currentCount: number }
+  | { type: "symlink-state-changed"; skillName: string; sourcePath: string };
+```
+
+UI 可以从这些变化聚合出：
+
+```text
+新增 3 个技能 · 1 个内容修改 · 2 个来源变化
+```
+
+### 7.7 v0.3 实现切片
+
+#### v0.3.0：回访理由
+
+只做 Since Last Visit：
+
+- 保存上一份 scan snapshot
+- 扫描后计算 changes
+- Home 页面展示欢迎状态、最近变化和轻量建议
+- 增加「最近变化」筛选
+- 详情页可以标注该 skill 最近发生了什么
+
+验收标准：
+
+- 首次打开不显示误导性的「变化」
+- 第二次扫描能识别新增、移除、内容变化、来源变化
+- 清空或损坏 snapshot 时能安全重建
+- 文案保持温和，不出现告警式提示
+
+#### v0.3.1：轻量筛选
+
+补齐 Library filter：
+
+- 全部
+- 多来源
+- 有变体
+- 最近变更
+- 值得看看
+
+筛选默认隐藏在搜索框旁边的筛选菜单中，用户可以勾选，也可以再次点击取消回到「全部」。
+
+筛选不改变底层数据，只改变当前列表视图。搜索与筛选组合时，优先保持可预测：
+
+```text
+filter -> search -> sort
+```
+
+#### v0.3.2：值得看看
+
+增加第一批 suggestions rule：
+
+- 多 Variant
+- broken symlink
+- description 缺失
+- `SKILL.md` 过长
+- supporting file 缺失
+- source 内容不一致
+
+每条 suggestion 需要包含：
+
+- `skillName`
+- `sourcePath`（如适用）
+- `severity`：只用于排序，不直接展示成警告等级
+- `message`
+- `actionLabel`
+- `filterReason`
+
+### 7.8 明确不做
+
+v0.3 不做：
+
+- Dashboard 首页
+- 趋势统计
+- 云同步
+- 真实调用统计
+- 自动修复
+- 批量删除 / 批量合并
+- 跨 Agent 自动同步
+- 读取历史会话内容
+
 ---
 
-## 8. Worth a Look / Suggestions
+## 8. Agent Context Catalog
 
 ### 8.1 目标
+
+v0.6.0 先只回答一个问题：
+
+```text
+每个 Agent 的 skill catalog 预计常驻多少 token？
+```
+
+这里的 catalog 指 Agent Skills 标准中的轻量 skill 列表，而不是完整 `SKILL.md`。常规对话中，Agent 通常先看到 skill 的 `name`、`description`、`when_to_use` 和简短引用信息，再按需激活完整 skill。
+
+v0.6.0 不做真实调用统计，也不统计完整 instructions。它只帮助用户理解：
+
+```text
+哪些 skill 描述预计常驻在上下文 catalog 里？
+这些常驻描述大约占多少 token？
+哪些 skill 已关闭模型自动调用，所以不进入自动发现 catalog？
+哪些 Agent 对这些字段的支持还未确认？
+```
+
+这不是企业监控台，也不是成本审计系统。它是一个本地反馈面板，让个人开发者知道自己的 skill catalog 是否过重、哪些控制字段被 Agent 支持、哪些规则还需要确认。
+
+### 8.2 v0.6.0 支持范围
+
+只做：
+
+- Agent 视角
+- 读取 `SKILL.md` frontmatter
+- 统计 `name`、`description`、`when_to_use`、`location` / 简短引用元信息的预计 token
+- 识别 `disable-model-invocation` 与 provider 等价字段
+- 建立 provider capability matrix
+- 展示预计常驻 tokens 总数
+- 拆分已确认、未确认、关闭自动调用三类
+- 展示 Top catalog cost skill 列表
+- 在 skill 详情页展示该 skill 在各 Agent 下的 catalog 状态
+
+不做：
+
+- 完整 `SKILL.md` token
+- supporting files token
+- 调用后 activation token
+- 手动调用统计
+- 本地会话日志统计
+- 历史趋势
+- 成本金额换算
+- 自动优化或批量修改 skill frontmatter
+
+第一版只读分析，保持：
+
+```text
+Detect -> Explain
+```
+
+不进入：
+
+```text
+Suggest -> Edit -> Rewrite frontmatter
+```
+
+### 8.3 数据模型
+
+建议按 Agent 建立 catalog profile：
+
+```json
+{
+  "agent": "Claude Code",
+  "skills": [
+    {
+      "name": "document-writer",
+      "variantHash": "...",
+      "sourcePath": "/Users/alien/.claude/skills/document-writer",
+      "catalogDisclosure": "included",
+      "modelInvocation": "enabled",
+      "userInvocation": "enabled",
+      "residentCatalogTokens": 92,
+      "includedInEstimate": true,
+      "sourceField": "description",
+      "filteredReason": null,
+      "confidence": "high"
+    }
+  ],
+  "lastCheckedAt": "2026-xx-xxTxx:xx:xxZ"
+}
+```
+
+`catalogDisclosure` 第一版可以先分成：
+
+- `included`：预计进入该 Agent 的 skill catalog
+- `disabled`：头部或等价配置关闭模型自动调用，不进入自动发现 catalog
+- `invalid`：缺少必要字段，或 frontmatter 无法解析
+- `unknown`：Agent 规则或字段支持未确认，但仍计入预计总量并标低可信
+- `unsupported`：该来源不参与 Agent Skills catalog 机制
+
+### 8.4 Token 口径
+
+v0.6.0 只统计预计常驻 catalog token：
+
+```text
+常驻 token = name + description + when_to_use + location / 简短引用元信息
+```
+
+不统计：
+
+```text
+完整 SKILL.md
+supporting files
+调用后 activation token
+手动选择成本
+会话里的真实调用成本
+```
+
+如果 provider 规则未确认，仍计入预计总量，但必须明确提示：
+
+```text
+预计常驻：45 个 · 约 4.0k tokens
+已确认：38 个 · 约 3.4k tokens
+未确认：7 个 · 约 620 tokens
+关闭自动调用：4 个 · 原本约 360 tokens
+```
+
+总数文案使用「预计常驻」，不要使用「已确认常驻」。如果包含低可信项目，显示：
+
+```text
+约 4.0k tokens · 含 7 个未确认项
+```
+
+### 8.5 Provider Capability Matrix
+
+不同 Agent 对自动发现和关闭模型调用的支持不统一。v0.6.0 需要一个 provider capability matrix，而不是只读取字段名。
+
+第一版至少标注：
+
+- 是否支持 Agent Skills catalog
+- 是否支持 `description` / `when_to_use` 进入 catalog
+- 是否支持 `disable-model-invocation`
+- 是否存在等价字段，例如 Codex 的 `policy.allow_implicit_invocation`
+- 是否支持 `user-invocable`
+- 是否支持 `paths` 或类似路径条件
+- 字段支持是否来自官方文档、实际检测、第三方资料或未知推断
+
+示例：
+
+```json
+{
+  "provider": "claude-code",
+  "supportsCatalog": true,
+  "supportsWhenToUse": true,
+  "supportsDisableModelInvocation": true,
+  "implicitInvocationField": "disable-model-invocation",
+  "supportLevel": "native",
+  "evidence": "official-docs"
+}
+```
+
+### 8.6 展示方式
+
+v0.6.0 的主视角以 Agent 为主。
+
+```text
+Claude Code
+预计常驻：45 个 · 约 4.0k tokens
+已确认：38 个 · 约 3.4k tokens
+未确认：7 个 · 约 620 tokens
+关闭自动调用：4 个 · 原本约 360 tokens
+
+Top catalog cost
+- ui-ux-pro-max       420 tokens
+- dws                 310 tokens
+- document-writer      92 tokens
+```
+
+Skill 详情页只补一块轻量信息：
+
+```text
+常驻上下文
+Claude Code    约 92 tokens · 预计进入 catalog
+Cursor         约 92 tokens · 字段支持未确认
+Codex          关闭自动调用 · 未进入 catalog
+```
+
+这里的重点不是做图表墙，而是让用户能回答：
+
+```text
+哪个 Agent 的 skill catalog 最重？
+哪些 skill 的常驻描述占得最多？
+哪些禁用模型自动调用的字段真的被这个 Agent 支持？
+哪些统计只是预计，需要用户谨慎理解？
+```
+
+### 8.7 后续版本
+
+v0.6.0 之后再扩展：
+
+- v0.6.1：细化 provider 支持矩阵、路径条件、字段兼容和可信度提示
+- v0.6.2：分析用户授权的本地会话数据，统计 skill 在各 Agent 的真实调用情况
+- v0.6.2 之后再考虑趋势、建议、修改入口和更完整的 usage rollup
+
+### 8.8 数据边界
+
+这类能力必须保持克制：
+
+- 只读取用户授权的本地目录
+- 不上传会话内容
+- 不做键盘监听或实时行为监控
+- v0.6.0 不读取历史会话内容
+- 不自动修改 `SKILL.md` 或 provider 配置
+- 对未知 provider 明确显示「未确认」，不要假装精确
+- 对未知格式明确显示「无法确认」，不要假装精确
+
+---
+
+## 9. Worth a Look / Suggestions
+
+### 9.1 目标
 
 提供轻量整理建议，不制造焦虑。
 
@@ -649,7 +1056,7 @@ Suggestions
 建议
 ```
 
-### 8.2 第一批规则
+### 9.2 第一批规则
 
 可以先做非常轻的规则：
 
@@ -663,7 +1070,7 @@ Suggestions
 - 包含 shell 脚本或明显危险命令
 - 来源路径来自自定义目录，且没有 provenance metadata
 
-### 8.3 文案示例
+### 9.3 文案示例
 
 ```text
 dws 有 2 个内容版本，值得看一眼。
@@ -683,9 +1090,9 @@ pdf skill 的说明较长，可以考虑拆分 supporting files。
 
 ---
 
-## 9. UI / UX 调性
+## 10. UI / UX 调性
 
-### 9.1 首页不是 Dashboard
+### 10.1 首页不是 Dashboard
 
 不要做：
 
@@ -703,7 +1110,7 @@ pdf skill 的说明较长，可以考虑拆分 supporting files。
 - 明确的当前 skill 详情
 - 温和的建议
 
-### 9.2 文案风格
+### 10.2 文案风格
 
 避免：
 
@@ -728,7 +1135,7 @@ pdf skill 的说明较长，可以考虑拆分 supporting files。
 移除此来源
 ```
 
-### 9.3 Badge 规则
+### 10.3 Badge 规则
 
 当前每行都有紫色来源 badge，容易有点噪。建议：
 
@@ -737,7 +1144,7 @@ pdf skill 的说明较长，可以考虑拆分 supporting files。
 - 多 Variant 才使用更明显的紫色
 - 当前选中项可强化 badge
 
-### 9.4 「真实文件」标签
+### 10.4 「真实文件」标签
 
 「真实文件」是默认状态，不需要每行都突出。
 
@@ -753,9 +1160,9 @@ pdf skill 的说明较长，可以考虑拆分 supporting files。
 
 ---
 
-## 10. 阅读体验
+## 11. 阅读体验
 
-### 10.1 Markdown Preview
+### 11.1 Markdown Preview
 
 当前 Markdown preview 是产品的重要体验之一，应该继续打磨。
 
@@ -768,7 +1175,7 @@ pdf skill 的说明较长，可以考虑拆分 supporting files。
 - supporting files 列表
 - 长文阅读宽度控制
 
-### 10.2 Sticky Mini Header
+### 11.2 Sticky Mini Header
 
 当用户滚动长 SKILL.md 时，右侧顶部应该保留轻量上下文：
 
@@ -786,13 +1193,13 @@ ui-ux-pro-max · 2 个内容版本
 
 ---
 
-## 11. 命名方向
+## 12. 命名方向
 
 当前名字 Skill Studio 可以继续使用，但从产品气质看略偏 builder / 平台。
 
 可选方向：
 
-### 11.1 Skill Grove
+### 12.1 Skill Grove
 
 ```text
 Skill Grove
@@ -805,7 +1212,7 @@ A beautiful local library for your Agent Skills.
 - 有个人 skill garden 的感觉
 - 比 Studio 更安静
 
-### 11.2 Glade
+### 12.2 Glade
 
 ```text
 Glade
@@ -822,7 +1229,7 @@ A calm local library for your Agent Skills.
 
 - 单独看不够直观，需要 subtitle 解释
 
-### 11.3 Grove
+### 12.3 Grove
 
 ```text
 Grove
@@ -838,7 +1245,7 @@ A local home for your Agent Skills.
 
 - 单独看解释成本较高
 
-### 11.4 推荐排序
+### 12.4 推荐排序
 
 如果优先可理解性：
 
@@ -854,7 +1261,7 @@ Glade > Grove > Skill Grove
 
 ---
 
-## 12. README 首屏建议
+## 13. README 首屏建议
 
 如果继续叫 Skill Studio：
 
@@ -888,9 +1295,9 @@ Browse your local skills, understand their variants, and keep your AI workflow c
 
 ---
 
-## 13. 开发原则
+## 14. 开发原则
 
-### 13.1 小步快跑
+### 14.1 小步快跑
 
 这是个人项目，不追求一次性做全。
 
@@ -902,7 +1309,7 @@ Detect -> Explain -> Suggest -> Safe Action -> Reversible Action
 
 不要一开始做大量自动修改。
 
-### 13.2 所有 destructive 操作必须可恢复
+### 14.2 所有 destructive 操作必须可恢复
 
 第一阶段所有删除都应该进入系统废纸篓。
 
@@ -915,7 +1322,7 @@ rm -rf
 删除所有来源
 ```
 
-### 13.3 先做好阅读和理解，再做编辑和同步
+### 14.3 先做好阅读和理解，再做编辑和同步
 
 用户先要能理解：
 
@@ -937,25 +1344,25 @@ rm -rf
 
 ---
 
-## 14. 下一步最小执行清单
+## 15. 下一步最小执行清单
 
-v0.2.0 已完成，下一步建议收敛在 v0.2.1：
+v0.3.0 已完成第一版回访理由与轻量整理。下一步建议补齐需要扫描器支持的边缘状态：
 
-- [x] 先整理主题 token，避免黑暗模式靠逐个 class 硬改
-- [x] 增加 Theme 设置：浅色、深色、跟随系统
-- [x] 抽出第一版 i18n dictionary，覆盖当前主要界面文案
-- [x] 增加 Language 设置：中文、English、默认语言
-- [ ] 用 4 组组合做视觉验收：中文浅色、中文深色、英文浅色、英文深色
+- [ ] 扫描器记录 broken symlink 和不可读来源，而不是直接跳过
+- [ ] 将 broken symlink 接入 Worth a Look
+- [ ] 为最近变化补一组 fixture / 单元测试，覆盖新增、移除、内容变化和来源变化
+- [ ] 为 suggestions 补一组 fixture / 单元测试，覆盖多变体、描述缺失、长说明、自定义来源
+- [ ] 再做一次双语与双主题视觉验收
 
-完成 v0.2.1 后，Skill Studio 会从「中文单主题的本地工具」升级为「可长期打磨的双语、双主题桌面应用」。
+完成这些后，v0.3.x 会从「知道哪里变了」再进一步变成「知道哪些来源状态需要轻轻看一眼」。
 
 ---
 
-## 15. 一句话目标
+## 16. 一句话目标
 
-v0.2.1 的核心目标：
+v0.3 的核心目标：
 
-> 让用户可以用自己舒服的语言和外观打开 Skill Studio：白天清爽，夜里不刺眼，中文和英文都像原生写出来的产品。
+> 让用户每次回到 Skill Studio 时，都能轻松知道：哪些 skill 变了，哪些值得看看。
 
 长期目标：
 

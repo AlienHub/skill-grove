@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import { initialSkillManagerState } from 'virtual:skill-manager-state'
+import { type TranslationKey } from './i18n'
 
 export type SkillManagerState = typeof initialSkillManagerState
 export type Skill = SkillManagerState['skills'][number]
@@ -54,4 +55,53 @@ export type SkillGroup = {
 export type DefinitionRow = {
   label: string
   value: ReactNode
+}
+
+export type LibraryFilter = 'all' | 'multi-source' | 'variants' | 'recent' | 'worth'
+
+export type LibraryChangeType =
+  | 'skill-added'
+  | 'skill-removed'
+  | 'content-changed'
+  | 'source-added'
+  | 'source-removed'
+  | 'variant-count-changed'
+  | 'symlink-state-changed'
+
+export type LibraryChange = {
+  type: LibraryChangeType
+  skillId: string
+  skillName: string
+  sourcePath?: string
+  agentName?: string
+  previousCount?: number
+  currentCount?: number
+}
+
+export type SkillSuggestionType =
+  | 'multiple-variants'
+  | 'missing-description'
+  | 'long-instructions'
+  | 'content-inconsistent'
+  | 'custom-source'
+
+export type SkillSuggestion = {
+  type: SkillSuggestionType
+  skillId: string
+  skillName: string
+  sourcePath?: string
+  severity: 1 | 2 | 3
+  messageKey: TranslationKey
+  actionKey: TranslationKey
+  params?: Record<string, string | number>
+}
+
+export type LibraryVisitState = {
+  capturedAt: string | null
+  previousCapturedAt: string | null
+  hasPreviousSnapshot: boolean
+  changes: LibraryChange[]
+  changesBySkillId: Record<string, LibraryChange[]>
+  suggestions: SkillSuggestion[]
+  suggestionsBySkillId: Record<string, SkillSuggestion[]>
 }

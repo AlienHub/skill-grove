@@ -1,20 +1,79 @@
 import { describeSkillGroup } from '../../skill-manager/skillGrouping'
 import { useAppPreferences } from '../../skill-manager/preferences'
-import { type DirectoryOpenTarget, type Skill, type SkillGroup } from '../../skill-manager/types'
+import { changeMessageKeys, changeParams } from '../../skill-manager/libraryPresentation'
+import {
+  type DirectoryOpenTarget,
+  type LibraryChange,
+  type Skill,
+  type SkillGroup,
+  type SkillSuggestion,
+} from '../../skill-manager/types'
 import { SkillMetadataTable, SkillSourceTable } from './SkillInfoTables'
 import { SkillInstructions } from './SkillInstructions'
 import { SkillSourcePicker } from './SkillSourcePicker'
 
+function SkillInsightNotes({
+  recentChanges,
+  suggestions,
+}: {
+  recentChanges: LibraryChange[]
+  suggestions: SkillSuggestion[]
+}) {
+  const { t } = useAppPreferences()
+
+  if (!recentChanges.length && !suggestions.length) {
+    return null
+  }
+
+  return (
+    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+      {recentChanges.length ? (
+        <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] p-3 shadow-minimal-flat">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/38">
+            {t('changes.title')}
+          </p>
+          <div className="mt-2 space-y-1.5">
+            {recentChanges.slice(0, 3).map((change, index) => (
+              <p className="text-[12px] leading-5 text-foreground/58" key={`${change.type}-${change.sourcePath ?? index}`}>
+                {t(changeMessageKeys[change.type], changeParams(change))}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {suggestions.length ? (
+        <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] p-3 shadow-minimal-flat">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/38">
+            {t('suggestions.title')}
+          </p>
+          <div className="mt-2 space-y-1.5">
+            {suggestions.slice(0, 3).map((suggestion, index) => (
+              <p className="text-[12px] leading-5 text-foreground/58" key={`${suggestion.type}-${suggestion.sourcePath ?? index}`}>
+                {t(suggestion.messageKey, suggestion.params)}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function SkillDetailPanel({
   openDirectoryTargets,
+  recentChanges,
   selectedSkill,
   selectedSkillGroup,
+  suggestions,
   onRemoveSource,
   onSelectSkill,
 }: {
   openDirectoryTargets: DirectoryOpenTarget[]
+  recentChanges: LibraryChange[]
   selectedSkill: Skill
   selectedSkillGroup: SkillGroup
+  suggestions: SkillSuggestion[]
   onRemoveSource: (skill: Skill) => Promise<void>
   onSelectSkill: (skillId: string) => void
 }) {
@@ -52,6 +111,7 @@ export function SkillDetailPanel({
           <p className="mt-2 line-clamp-2 text-[14px] leading-7 text-foreground/56">
             {selectedSkillGroup.description || selectedSkill.description || t('detail.noDescription')}
           </p>
+          <SkillInsightNotes recentChanges={recentChanges} suggestions={suggestions} />
         </div>
       </div>
 

@@ -1,17 +1,17 @@
-# Skill Studio v0.2.1
+# Skill Studio v0.3.0
 
-Released: 2026-05-07
+Released: 2026-05-08
 
 ## Highlights
 
-- Added appearance preferences with System, Light, and Dark modes.
-- Added language preferences with system default, Chinese, and English options.
-- Reworked dark mode into a neutral black/gray palette with clearer borders.
-- Synced the native Tauri titlebar/window chrome with theme changes so Light and Dark modes switch cleanly in the desktop app.
-- Localized the core Skill Studio UI strings as the first pass of English support.
+- Added Since Last Visit snapshots to show what changed since the previous library scan.
+- Added a Home view for the welcome/status summary, recent changes, and lightweight suggestions.
+- Added filters for All, Multi-source, Variants, Recent, and Worth a Look behind a search-adjacent filter menu.
+- Added first-pass Worth a Look suggestions for variant drift, missing descriptions, long instructions, and custom sources.
+- Added lightweight recent-change and suggestion notes to the skill detail header.
 
 ## macOS
 
 - This release publishes a macOS DMG installer only.
 - Download the `.dmg` asset below and drag Skill Studio into Applications.
-- Users on v0.2.0 can use the in-app updater to install this release.
+- Users on v0.2.2 can use the in-app updater to install this release.

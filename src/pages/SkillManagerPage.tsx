@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { appVersion, initialSkillManagerState } from 'virtual:skill-manager-state'
 import { AgentSkillConfigPanel } from '../components/skill-manager/AgentSkillConfigPanel'
 import { AppSettingsPanel } from '../components/skill-manager/AppSettingsPanel'
+import { LibraryHomePanel } from '../components/skill-manager/LibraryHomePanel'
 import { SkillDetailPanel } from '../components/skill-manager/SkillDetailPanel'
 import { SkillSidebar } from '../components/skill-manager/SkillSidebar'
 import {
@@ -16,7 +17,13 @@ import {
 import { buildSkillGroups } from '../skill-manager/skillGrouping'
 import { useAppPreferences } from '../skill-manager/preferences'
 import {
+  groupMatchesLibraryFilter,
+  readAndStoreLibraryVisitState,
+} from '../skill-manager/libraryInsights'
+import {
   type Skill,
+  type LibraryFilter,
+  type LibraryVisitState,
   type SkillGroup,
   type SkillManagerState,
   type SourceIcon,
@@ -25,15 +32,34 @@ import {
   type UpdateInstallStatus,
 } from '../skill-manager/types'
 
-type SelectedPanel = 'skill' | 'agent-skill-config' | 'settings'
+type SelectedPanel = 'home' | 'skill' | 'agent-skill-config' | 'settings'
 
-function filterSkillGroups(skillGroups: SkillGroup[], queryValue: string) {
+const emptyLibraryVisitState: LibraryVisitState = {
+  capturedAt: null,
+  previousCapturedAt: null,
+  hasPreviousSnapshot: false,
+  changes: [],
+  changesBySkillId: {},
+  suggestions: [],
+  suggestionsBySkillId: {},
+}
+
+function filterSkillGroups(
+  skillGroups: SkillGroup[],
+  queryValue: string,
+  activeFilter: LibraryFilter,
+  visitState: LibraryVisitState
+) {
   const query = queryValue.trim().toLowerCase()
+  const filterMatchedGroups = skillGroups.filter((group) =>
+    groupMatchesLibraryFilter(group, activeFilter, visitState)
+  )
+
   if (!query) {
-    return skillGroups
+    return filterMatchedGroups
   }
 
-  return skillGroups.filter((group) => {
+  return filterMatchedGroups.filter((group) => {
     const haystack = group.skills
       .map((skill) => `${skill.name} ${skill.slug} ${skill.description} ${skill.location} ${skill.sourceDirectory}`)
       .join(' ')
@@ -46,13 +72,16 @@ function filterSkillGroups(skillGroups: SkillGroup[], queryValue: string) {
 export function SkillManagerPage() {
   const { t } = useAppPreferences()
   const [skillState, setSkillState] = useState<SkillManagerState>(initialSkillManagerState)
+  const [hasLoadedSkillState, setHasLoadedSkillState] = useState(false)
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(
     initialSkillManagerState.skills[0]?.id ?? null
   )
-  const [selectedPanel, setSelectedPanel] = useState<SelectedPanel>('skill')
+  const [selectedPanel, setSelectedPanel] = useState<SelectedPanel>('home')
   const [isSavingDirectories, setIsSavingDirectories] = useState(false)
   const [directoryFeedbackMessage, setDirectoryFeedbackMessage] = useState<string | null>(null)
   const [skillSearchQuery, setSkillSearchQuery] = useState('')
+  const [activeLibraryFilter, setActiveLibraryFilter] = useState<LibraryFilter>('all')
+  const [libraryVisitState, setLibraryVisitState] = useState<LibraryVisitState>(emptyLibraryVisitState)
   const [updateCheckStatus, setUpdateCheckStatus] = useState<UpdateCheckStatus>('idle')
   const [updateCheckState, setUpdateCheckState] = useState<UpdateCheckState | null>(null)
   const [updateCheckError, setUpdateCheckError] = useState<string | null>(null)
@@ -65,8 +94,8 @@ export function SkillManagerPage() {
     [skillGroups]
   )
   const filteredSkillGroups = useMemo(
-    () => filterSkillGroups(skillGroups, skillSearchQuery),
-    [skillGroups, skillSearchQuery]
+    () => filterSkillGroups(skillGroups, skillSearchQuery, activeLibraryFilter, libraryVisitState),
+    [activeLibraryFilter, libraryVisitState, skillGroups, skillSearchQuery]
   )
   const hasPendingUpdate = Boolean(updateCheckState?.hasUpdate)
 
@@ -96,15 +125,27 @@ export function SkillManagerPage() {
         }
 
         setSkillState(state)
+        setHasLoadedSkillState(true)
       })
       .catch(() => {
         // Keep build-time fallback state when the API is unavailable.
+        if (isMounted) {
+          setHasLoadedSkillState(true)
+        }
       })
 
     return () => {
       isMounted = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!hasLoadedSkillState) {
+      return
+    }
+
+    setLibraryVisitState(readAndStoreLibraryVisitState(skillGroups))
+  }, [hasLoadedSkillState, skillGroups])
 
   const handleCheckForUpdates = useCallback(async () => {
     setUpdateCheckStatus('checking')
@@ -221,58 +262,76 @@ export function SkillManagerPage() {
   return (
     <div className="h-screen overflow-hidden bg-background text-[14px] text-foreground">
       <main className="mx-auto h-screen max-w-[1440px] px-4 py-5 sm:px-6">
-        <div className="grid h-full gap-2 lg:grid-cols-[240px_minmax(0,1fr)]">
-          <SkillSidebar
-            filteredSkillGroups={filteredSkillGroups}
-            hasPendingUpdate={hasPendingUpdate}
-            multiSourceGroupCount={multiSourceGroupCount}
-            selectedGroupId={selectedSkillGroup?.id ?? null}
-            selectedPanel={selectedPanel}
-            skillGroups={skillGroups}
-            skillSearchQuery={skillSearchQuery}
-            onSearchChange={setSkillSearchQuery}
-            onSelectAgentSkillConfig={() => setSelectedPanel('agent-skill-config')}
-            onSelectSettings={() => setSelectedPanel('settings')}
-            onSelectSkillGroup={handleSelectSkillGroup}
-          />
+        {selectedPanel === 'home' ? (
+          <div className="h-full">
+            <LibraryHomePanel
+              skillGroups={skillGroups}
+              visitState={libraryVisitState}
+              onOpenAgentSkillConfig={() => setSelectedPanel('agent-skill-config')}
+              onOpenSettings={() => setSelectedPanel('settings')}
+              onSelectSkillGroup={handleSelectSkillGroup}
+            />
+          </div>
+        ) : (
+          <div className="grid h-full gap-2 lg:grid-cols-[240px_minmax(0,1fr)]">
+            <SkillSidebar
+              activeFilter={activeLibraryFilter}
+              filteredSkillGroups={filteredSkillGroups}
+              hasPendingUpdate={hasPendingUpdate}
+              multiSourceGroupCount={multiSourceGroupCount}
+              selectedGroupId={selectedSkillGroup?.id ?? null}
+              selectedPanel={selectedPanel}
+              skillGroups={skillGroups}
+              skillSearchQuery={skillSearchQuery}
+              visitState={libraryVisitState}
+              onFilterChange={setActiveLibraryFilter}
+              onSearchChange={setSkillSearchQuery}
+              onSelectHome={() => setSelectedPanel('home')}
+              onSelectAgentSkillConfig={() => setSelectedPanel('agent-skill-config')}
+              onSelectSettings={() => setSelectedPanel('settings')}
+              onSelectSkillGroup={handleSelectSkillGroup}
+            />
 
-          {selectedPanel === 'agent-skill-config' ? (
-            <AgentSkillConfigPanel
-              builtInDirectories={skillState.builtInDirectories}
-              configuredDirectories={skillState.configuredDirectories}
-              feedbackMessage={directoryFeedbackMessage}
-              inputDisabled={isSavingDirectories}
-              sourceIcons={skillState.sourceIcons}
-              skillCount={skillGroups.length}
-              userConfiguredDirectories={skillState.userConfiguredDirectories}
-              onRefresh={handleRefresh}
-              onRemoveDirectory={handleRemoveDirectory}
-              onSaveSourceIcon={handleSaveSourceIcon}
-              onSetFeedbackMessage={setDirectoryFeedbackMessage}
-              onSelectDirectory={handleChooseDirectory}
-            />
-          ) : selectedPanel === 'settings' ? (
-            <AppSettingsPanel
-              currentVersion={appVersion}
-              updateCheck={updateCheckState}
-              updateCheckError={updateCheckError}
-              updateCheckStatus={updateCheckStatus}
-              updateInstallError={updateInstallError}
-              updateInstallStatus={updateInstallStatus}
-              onCheckForUpdates={handleCheckForUpdates}
-              onInstallUpdate={handleInstallUpdate}
-              onOpenExternalUrl={handleOpenExternalUrl}
-            />
-          ) : selectedSkill && selectedSkillGroup ? (
-            <SkillDetailPanel
-              openDirectoryTargets={skillState.openDirectoryTargets}
-              selectedSkill={selectedSkill}
-              selectedSkillGroup={selectedSkillGroup}
-              onRemoveSource={handleRemoveSkillSource}
-              onSelectSkill={setSelectedSkillId}
-            />
-          ) : null}
-        </div>
+            {selectedPanel === 'agent-skill-config' ? (
+              <AgentSkillConfigPanel
+                builtInDirectories={skillState.builtInDirectories}
+                configuredDirectories={skillState.configuredDirectories}
+                feedbackMessage={directoryFeedbackMessage}
+                inputDisabled={isSavingDirectories}
+                sourceIcons={skillState.sourceIcons}
+                skillCount={skillGroups.length}
+                userConfiguredDirectories={skillState.userConfiguredDirectories}
+                onRefresh={handleRefresh}
+                onRemoveDirectory={handleRemoveDirectory}
+                onSaveSourceIcon={handleSaveSourceIcon}
+                onSetFeedbackMessage={setDirectoryFeedbackMessage}
+                onSelectDirectory={handleChooseDirectory}
+              />
+            ) : selectedPanel === 'settings' ? (
+              <AppSettingsPanel
+                currentVersion={appVersion}
+                updateCheck={updateCheckState}
+                updateCheckError={updateCheckError}
+                updateCheckStatus={updateCheckStatus}
+                updateInstallError={updateInstallError}
+                updateInstallStatus={updateInstallStatus}
+                onCheckForUpdates={handleCheckForUpdates}
+                onInstallUpdate={handleInstallUpdate}
+                onOpenExternalUrl={handleOpenExternalUrl}
+              />
+            ) : selectedSkill && selectedSkillGroup ? (
+              <SkillDetailPanel
+                openDirectoryTargets={skillState.openDirectoryTargets}
+                recentChanges={libraryVisitState.changesBySkillId[selectedSkillGroup.id] ?? []}
+                selectedSkill={selectedSkill}
+                selectedSkillGroup={selectedSkillGroup}
+                suggestions={libraryVisitState.suggestionsBySkillId[selectedSkillGroup.id] ?? []}
+                onRemoveSource={handleRemoveSkillSource}
+                onSelectSkill={setSelectedSkillId}
+              />
+            ) : null}
+          </div>
+        )}
       </main>
     </div>
   )
