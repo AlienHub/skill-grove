@@ -56,9 +56,9 @@ jobs:
         with:
           tauriScript: bun run tauri
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
-          releaseName: Skill Studio ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
+          releaseName: Skill Grove ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseBody: |
-            Skill Studio release.
+            Skill Grove release.
 
             Download the macOS DMG installer from the assets below. Signed updater artifacts are also attached for in-app updates.
           releaseDraft: false
