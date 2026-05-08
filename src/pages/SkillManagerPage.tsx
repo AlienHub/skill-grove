@@ -17,6 +17,14 @@ import {
 import { buildSkillGroups } from '../skill-manager/skillGrouping'
 import { useAppPreferences } from '../skill-manager/preferences'
 import {
+  readLibraryActivity,
+  recordRecentlyViewedSkill,
+  sortSkillGroupsByActivity,
+  togglePinnedSkill,
+  writeLibraryActivity,
+  type LibraryActivityState,
+} from '../skill-manager/libraryActivity'
+import {
   groupMatchesLibraryFilter,
   readAndStoreLibraryVisitState,
 } from '../skill-manager/libraryInsights'
@@ -42,6 +50,11 @@ const emptyLibraryVisitState: LibraryVisitState = {
   changesBySkillId: {},
   suggestions: [],
   suggestionsBySkillId: {},
+}
+
+const emptyLibraryActivityState: LibraryActivityState = {
+  pinnedSkillIds: [],
+  recentlyViewedSkillIds: [],
 }
 
 function filterSkillGroups(
@@ -82,13 +95,17 @@ export function SkillManagerPage() {
   const [skillSearchQuery, setSkillSearchQuery] = useState('')
   const [activeLibraryFilter, setActiveLibraryFilter] = useState<LibraryFilter>('all')
   const [libraryVisitState, setLibraryVisitState] = useState<LibraryVisitState>(emptyLibraryVisitState)
+  const [libraryActivity, setLibraryActivity] = useState<LibraryActivityState>(emptyLibraryActivityState)
   const [updateCheckStatus, setUpdateCheckStatus] = useState<UpdateCheckStatus>('idle')
   const [updateCheckState, setUpdateCheckState] = useState<UpdateCheckState | null>(null)
   const [updateCheckError, setUpdateCheckError] = useState<string | null>(null)
   const [updateInstallStatus, setUpdateInstallStatus] = useState<UpdateInstallStatus>('idle')
   const [updateInstallError, setUpdateInstallError] = useState<string | null>(null)
 
-  const skillGroups = useMemo(() => buildSkillGroups(skillState.skills), [skillState.skills])
+  const skillGroups = useMemo(
+    () => sortSkillGroupsByActivity(buildSkillGroups(skillState.skills), libraryActivity),
+    [libraryActivity, skillState.skills]
+  )
   const multiSourceGroupCount = useMemo(
     () => skillGroups.filter((group) => group.sourceCount > 1).length,
     [skillGroups]
@@ -137,6 +154,10 @@ export function SkillManagerPage() {
     return () => {
       isMounted = false
     }
+  }, [])
+
+  useEffect(() => {
+    setLibraryActivity(readLibraryActivity())
   }, [])
 
   useEffect(() => {
@@ -252,6 +273,19 @@ export function SkillManagerPage() {
   const handleSelectSkillGroup = (group: SkillGroup) => {
     setSelectedPanel('skill')
     setSelectedSkillId(group.primarySkill.id)
+    setLibraryActivity((currentActivity) => {
+      const nextActivity = recordRecentlyViewedSkill(currentActivity, group.id)
+      writeLibraryActivity(nextActivity)
+      return nextActivity
+    })
+  }
+
+  const handleTogglePinnedSkill = (group: SkillGroup) => {
+    setLibraryActivity((currentActivity) => {
+      const nextActivity = togglePinnedSkill(currentActivity, group.id)
+      writeLibraryActivity(nextActivity)
+      return nextActivity
+    })
   }
 
   const handleRemoveSkillSource = useCallback(async (skill: Skill) => {
@@ -284,6 +318,7 @@ export function SkillManagerPage() {
               skillGroups={skillGroups}
               skillSearchQuery={skillSearchQuery}
               visitState={libraryVisitState}
+              pinnedSkillIds={libraryActivity.pinnedSkillIds}
               onFilterChange={setActiveLibraryFilter}
               onSearchChange={setSkillSearchQuery}
               onSelectHome={() => setSelectedPanel('home')}
@@ -310,6 +345,7 @@ export function SkillManagerPage() {
             ) : selectedPanel === 'settings' ? (
               <AppSettingsPanel
                 currentVersion={appVersion}
+                openDirectoryTargets={skillState.openDirectoryTargets}
                 updateCheck={updateCheckState}
                 updateCheckError={updateCheckError}
                 updateCheckStatus={updateCheckStatus}
@@ -323,11 +359,12 @@ export function SkillManagerPage() {
               <SkillDetailPanel
                 openDirectoryTargets={skillState.openDirectoryTargets}
                 recentChanges={libraryVisitState.changesBySkillId[selectedSkillGroup.id] ?? []}
+                isPinned={libraryActivity.pinnedSkillIds.includes(selectedSkillGroup.id)}
                 selectedSkill={selectedSkill}
                 selectedSkillGroup={selectedSkillGroup}
-                suggestions={libraryVisitState.suggestionsBySkillId[selectedSkillGroup.id] ?? []}
                 onRemoveSource={handleRemoveSkillSource}
                 onSelectSkill={setSelectedSkillId}
+                onTogglePinned={() => handleTogglePinnedSkill(selectedSkillGroup)}
               />
             ) : null}
           </div>

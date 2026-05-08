@@ -1,12 +1,12 @@
 [package]
-name = "skill-studio"
-version = "0.3.0"
+name = "skill-grove"
+version = "0.5.0"
 description = "Standalone Skill Manager app"
-authors = ["Skill Studio"]
+authors = ["Skill Grove"]
 edition = "2021"
 
 [lib]
-name = "skill_studio_lib"
+name = "skill_grove_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "craft-agent",
+      "name": "skill-grove",
       "dependencies": {
         "@lobehub/icons": "^5.6.0",
         "@tauri-apps/api": "^2.9.0",

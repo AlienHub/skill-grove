@@ -1,12 +1,12 @@
-# Skill Studio
+# Skill Grove
 
 <p>
   简体中文 | <a href="README.md">English</a>
 </p>
 
 <p>
-  <a href="https://github.com/AlienHub/skill-studio/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.3.0-111827.svg">
+  <a href="https://github.com/AlienHub/skill-grove/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-0.5.0-111827.svg">
   <img alt="Tauri" src="https://img.shields.io/badge/Tauri-v2-24C8DB.svg">
   <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB.svg">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6.svg">
@@ -14,7 +14,7 @@
   <img alt="Status" src="https://img.shields.io/badge/status-initial%20release-7C3AED.svg">
 </p>
 
-Skill Studio 是一个独立的 Tauri v2 桌面应用，用来浏览、对比和管理本机 Agent Skills。它会扫描常见 Agent 的 skill 目录，合并重复或软链接来源，并用精致的来源图标展示每个 skill 来自哪个 Agent 应用。
+Skill Grove 是一个独立的 Tauri v2 桌面应用，用来浏览、对比和整理本机 Agent Skills。它会扫描常见 Agent 的 skill 目录，合并重复或软链接来源，并让每个 skill 的来源、内容版本和最近变化更容易理解。
 
 ## 目录
 
@@ -35,7 +35,10 @@ Skill Studio 是一个独立的 Tauri v2 桌面应用，用来浏览、对比和
 - 仅在检测到对应 app 或 CLI 已安装时扫描内置 Agent skill 目录，同时保留用户手动配置的目录。
 - 多来源 skill 自动聚合：默认按来源数量从多到少排序，数量相同按 skill 名称排序。
 - 区分真实文件、软链接入口和内容一致的变体，方便判断 skill 的实际来源。
+- 查看最近变化、收藏重要 skill，并让最近看过的 skill 更靠前。
 - 来源表格和元数据表格使用统一 12px 字体、白色背景和细边框。
+- 长 Markdown 说明支持 sticky mini header、优化后的排版和 frontmatter 展示。
+- 支持为来源操作配置默认编辑器或 IDE 打开方式。
 - 基于 `@lobehub/icons` 展示 Agent 来源图标，未知来源使用闪电 fallback。
 - 支持为来源目录上传自定义 `.png` / `.svg` 图标，并持久化保存。
 - 多来源 skill 使用弹层式来源选择器，避免横向 tab 在来源过多时挤占页面。
@@ -92,22 +95,22 @@ bun run dmg
 生成的 `.app` 位置：
 
 ```text
-src-tauri/target/release/bundle/macos/Skill Studio.app
+src-tauri/target/release/bundle/macos/Skill Grove.app
 ```
 
 在 macOS 26 上，Tauri 内置 DMG wrapper 可能会在最后的 `create-dmg` 阶段失败。如果发生这种情况，可以手动把已生成的 `.app` 打成 DMG：
 
 ```bash
-mkdir -p /tmp/skill-studio-dmg
-cp -R "src-tauri/target/release/bundle/macos/Skill Studio.app" /tmp/skill-studio-dmg/
-ln -s /Applications /tmp/skill-studio-dmg/Applications
-hdiutil create -volname "Skill Studio" -srcfolder /tmp/skill-studio-dmg -ov -format UDZO \
-  "src-tauri/target/release/bundle/dmg/Skill Studio_0.3.0_aarch64.dmg"
+mkdir -p /tmp/skill-grove-dmg
+cp -R "src-tauri/target/release/bundle/macos/Skill Grove.app" /tmp/skill-grove-dmg/
+ln -s /Applications /tmp/skill-grove-dmg/Applications
+hdiutil create -volname "Skill Grove" -srcfolder /tmp/skill-grove-dmg -ov -format UDZO \
+  "src-tauri/target/release/bundle/dmg/Skill Grove_0.5.0_aarch64.dmg"
 ```
 
 ## Skill 目录扫描
 
-Skill Studio 的用户配置文件位于：
+Skill Grove 的用户配置文件位于：
 
 ```text
 ~/.agents/skill-manager.json

@@ -4,7 +4,7 @@ import { type DirectoryOpenTarget, type SkillManagerState, type SourceIcon, type
 
 export type OpenDirectoryTarget = DirectoryOpenTarget['id']
 
-const GITHUB_LATEST_RELEASE_URL = 'https://api.github.com/repos/AlienHub/skill-studio/releases/latest'
+const GITHUB_LATEST_RELEASE_URL = 'https://api.github.com/repos/AlienHub/skill-grove/releases/latest'
 
 type GitHubReleaseAsset = {
   name?: unknown

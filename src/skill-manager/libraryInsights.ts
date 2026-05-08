@@ -8,8 +8,8 @@ import {
 } from './types'
 import { isRealSkillSource } from './skillGrouping'
 
-const SNAPSHOT_STORAGE_KEY = 'skill-studio.librarySnapshot.v1'
-const SESSION_INSIGHTS_KEY = 'skill-studio.libraryVisitInsights.v1'
+const SNAPSHOT_STORAGE_KEY = 'skill-grove.librarySnapshot.v1'
+const SESSION_INSIGHTS_KEY = 'skill-grove.libraryVisitInsights.v1'
 const SNAPSHOT_SCHEMA_VERSION = 1
 const LONG_INSTRUCTIONS_CHARACTER_COUNT = 12000
 

@@ -4,6 +4,7 @@ import { displayAgentName } from '../../skill-manager/display'
 import { useAppPreferences } from '../../skill-manager/preferences'
 import { isRealSkillSource } from '../../skill-manager/skillGrouping'
 import { type DirectoryOpenTarget, type Skill } from '../../skill-manager/types'
+import { Ripple } from '../ui/Ripple'
 
 function ChevronDownIcon({ size }: { size: number }) {
   return (
@@ -94,11 +95,16 @@ export function SkillSourceActions({
   openDirectoryTargets: DirectoryOpenTarget[]
   skill: Skill
 }) {
-  const { t } = useAppPreferences()
+  const { defaultOpenTargetId, t } = useAppPreferences()
   const containerRef = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [menuPlacement, setMenuPlacement] = useState<'top' | 'bottom'>('bottom')
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null)
   const fileManagerTarget = openDirectoryTargets.find((target) => target.category === 'file-manager') ?? null
+  const defaultOpenTarget = defaultOpenTargetId
+    ? openDirectoryTargets.find((target) => target.id === defaultOpenTargetId) ?? null
+    : null
+  const primaryTarget = defaultOpenTarget ?? fileManagerTarget
   const appTargets = openDirectoryTargets.filter((target) => target.category === 'ide' || target.category === 'editor')
   const appTargetGroups = appTargets.reduce<Array<{ category: string; targets: DirectoryOpenTarget[] }>>(
     (groups, target) => {
@@ -152,6 +158,10 @@ export function SkillSourceActions({
       })
   }
 
+  const primaryLabel = defaultOpenTarget
+    ? t('source.openWith', { target: defaultOpenTarget.label })
+    : t('source.openDirectory')
+
   return (
     <div className="relative shrink-0" ref={containerRef}>
       <div className="flex h-8 overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface)] text-[12px] font-medium text-foreground/68 shadow-minimal-flat">
@@ -160,15 +170,15 @@ export function SkillSourceActions({
           className="flex cursor-pointer items-center gap-2 px-2.5 transition-colors hover:bg-foreground/5 hover:text-foreground"
           onClick={(event) => {
             event.stopPropagation()
-            if (fileManagerTarget) {
-              handleOpen(fileManagerTarget)
+            if (primaryTarget) {
+              handleOpen(primaryTarget)
             }
           }}
-          title={fileManagerTarget?.label ?? t('source.openDirectory')}
+          title={primaryTarget?.label ?? t('source.openDirectory')}
           type="button"
         >
-          {fileManagerTarget ? <TargetIcon target={fileManagerTarget} size={14} /> : <FolderIcon size={14} />}
-          <span>{t('source.openDirectory')}</span>
+          {primaryTarget ? <TargetIcon target={primaryTarget} size={14} /> : <FolderIcon size={14} />}
+          <span>{primaryLabel}</span>
         </button>
         <button
           aria-expanded={isOpen}
@@ -177,6 +187,13 @@ export function SkillSourceActions({
           onClick={(event) => {
             event.stopPropagation()
             setFeedbackMessage(null)
+            if (!isOpen) {
+              const rect = containerRef.current?.getBoundingClientRect()
+              if (rect) {
+                const spaceBelow = window.innerHeight - rect.bottom
+                setMenuPlacement(spaceBelow < 380 && rect.top > spaceBelow ? 'top' : 'bottom')
+              }
+            }
             setIsOpen((value) => !value)
           }}
           title={t('source.moreActions')}
@@ -188,7 +205,9 @@ export function SkillSourceActions({
 
       {isOpen ? (
         <div
-          className={`absolute top-[calc(100%+6px)] z-[900] w-[220px] overflow-hidden rounded-[8px] border border-border/55 bg-[var(--surface)] py-1 shadow-minimal ${
+          className={`absolute z-[900] max-h-[360px] w-[220px] overflow-y-auto rounded-[8px] border border-border/55 bg-[var(--surface)] py-1 shadow-minimal ${
+            menuPlacement === 'top' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'
+          } ${
             align === 'left' ? 'left-0' : 'right-0'
           }`}
         >
@@ -328,11 +347,12 @@ export function SkillSourceRemoveButton({
                 {t('common.cancel')}
               </button>
               <button
-                className="h-8 cursor-pointer rounded-[8px] bg-[#b04a3a] px-3 text-[12px] font-medium text-white transition-colors hover:bg-[#963f32] disabled:cursor-default disabled:opacity-55"
+                className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-[8px] bg-[#b04a3a] px-3 text-[12px] font-medium text-white transition-colors hover:bg-[#963f32] disabled:cursor-default disabled:opacity-55"
                 disabled={isRemoving}
                 onClick={handleRemoveSource}
                 type="button"
               >
+                {isRemoving ? <Ripple size={13} /> : null}
                 {isRemoving ? t('common.processing') : isSoftLink ? t('source.deleteSoftLink') : t('source.trash')}
               </button>
             </div>

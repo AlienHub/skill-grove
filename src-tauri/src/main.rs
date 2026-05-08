@@ -1,3 +1,3 @@
 fn main() {
-    skill_studio_lib::run()
+    skill_grove_lib::run()
 }

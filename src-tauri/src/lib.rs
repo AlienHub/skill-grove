@@ -729,7 +729,7 @@ fn run_open_command(command: &str, args: &[&str]) -> Result<(), String> {
 }
 
 fn is_allowed_external_url(url: &str) -> bool {
-    const GITHUB_RELEASE_URL_PREFIX: &str = "https://github.com/AlienHub/skill-studio/releases";
+    const GITHUB_RELEASE_URL_PREFIX: &str = "https://github.com/AlienHub/skill-grove/releases";
     url == GITHUB_RELEASE_URL_PREFIX
         || url
             .strip_prefix(GITHUB_RELEASE_URL_PREFIX)
@@ -812,7 +812,7 @@ fn stable_path_token(path: &Path) -> String {
 
 fn icon_data_url_from_icns(icon_path: &Path) -> Option<SourceIcon> {
     let output_path = std::env::temp_dir().join(format!(
-        "skill-studio-icon-64-{}.png",
+        "skill-grove-icon-64-{}.png",
         stable_path_token(icon_path)
     ));
 
@@ -1306,7 +1306,7 @@ fn remove_skill_source(skill_directory: String) -> Result<SkillManagerState, Str
 fn open_external_url(url: String) -> Result<(), String> {
     let url = url.trim();
     if !is_allowed_external_url(url) {
-        return Err("只允许打开 Skill Studio 的 GitHub Release 链接。".to_string());
+        return Err("只允许打开 Skill Grove 的 GitHub Release 链接。".to_string());
     }
 
     #[cfg(target_os = "macos")]
@@ -1343,5 +1343,5 @@ pub fn run() {
             open_external_url,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Skill Studio")
+        .expect("error while running Skill Grove")
 }

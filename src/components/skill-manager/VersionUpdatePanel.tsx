@@ -4,6 +4,7 @@ import {
   type UpdateInstallStatus,
 } from '../../skill-manager/types'
 import { useAppPreferences } from '../../skill-manager/preferences'
+import { Ripple } from '../ui/Ripple'
 
 function formatCheckedAt(value: string, locale: string) {
   const checkedAt = new Date(value)
@@ -101,11 +102,12 @@ export function VersionUpdatePanel({
             {updateCheck?.hasUpdate ? (
               <>
                 <button
-                  className="cursor-pointer rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
                   disabled={isInstalling}
                   onClick={onInstallUpdate}
                   type="button"
                 >
+                  {isInstalling ? <Ripple size={13} /> : null}
                   {isInstalling ? t('updates.installing') : t('updates.install')}
                 </button>
                 {updateCheck.releaseUrl ? (
@@ -120,11 +122,12 @@ export function VersionUpdatePanel({
               </>
             ) : (
               <button
-                className="cursor-pointer rounded-[8px] border border-border/60 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-[8px] border border-border/60 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
                 disabled={isChecking}
                 onClick={onCheckForUpdates}
                 type="button"
               >
+                {isChecking ? <Ripple size={13} /> : null}
                 {isChecking ? t('common.checking') : t('updates.checkNow')}
               </button>
             )}

@@ -1,12 +1,12 @@
-# Skill Studio
+# Skill Grove
 
 <p>
   <a href="README.zh-CN.md">简体中文</a> | English
 </p>
 
 <p>
-  <a href="https://github.com/AlienHub/skill-studio/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.3.0-111827.svg">
+  <a href="https://github.com/AlienHub/skill-grove/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-0.5.0-111827.svg">
   <img alt="Tauri" src="https://img.shields.io/badge/Tauri-v2-24C8DB.svg">
   <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB.svg">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6.svg">
@@ -14,7 +14,7 @@
   <img alt="Status" src="https://img.shields.io/badge/status-initial%20release-7C3AED.svg">
 </p>
 
-Skill Studio is a standalone Tauri v2 desktop app for browsing, comparing, and managing local Agent Skills. It scans common local skill directories, groups duplicate or symlinked skills, and shows each skill's source agent with a polished icon-driven UI.
+Skill Grove is a standalone Tauri v2 desktop app for browsing, comparing, and tending local Agent Skills. It scans common local skill directories, groups duplicate or symlinked skills, and keeps each skill's source, variants, and recent changes easy to understand.
 
 ## Table Of Contents
 
@@ -35,7 +35,10 @@ Skill Studio is a standalone Tauri v2 desktop app for browsing, comparing, and m
 - Auto-discover built-in agent skill directories only when the matching app or CLI is installed, while preserving user-configured directories.
 - Group the same skill across multiple sources, sorted by source count from high to low and then by skill name.
 - Distinguish real files, symlink entries, and same-content variants.
+- See recent library changes, pin important skills, and keep recently viewed skills near the top.
 - Render source and metadata tables with consistent 12px text, white backgrounds, and subtle borders.
+- Read long Markdown skill instructions with a sticky mini header, tuned typography, and visible frontmatter.
+- Choose a default editor or IDE open target for source actions.
 - Show agent source icons with `@lobehub/icons`, with a lightning fallback for unknown sources.
 - Override source icons with custom `.png` or `.svg` files that persist across refreshes.
 - Use a popover source selector for skills with many sources, avoiding horizontal tab overflow.
@@ -92,17 +95,17 @@ bun run dmg
 Generated `.app` path:
 
 ```text
-src-tauri/target/release/bundle/macos/Skill Studio.app
+src-tauri/target/release/bundle/macos/Skill Grove.app
 ```
 
 On macOS 26, Tauri's built-in DMG wrapper may fail during the final `create-dmg` step. If that happens, package the generated `.app` manually:
 
 ```bash
-mkdir -p /tmp/skill-studio-dmg
-cp -R "src-tauri/target/release/bundle/macos/Skill Studio.app" /tmp/skill-studio-dmg/
-ln -s /Applications /tmp/skill-studio-dmg/Applications
-hdiutil create -volname "Skill Studio" -srcfolder /tmp/skill-studio-dmg -ov -format UDZO \
-  "src-tauri/target/release/bundle/dmg/Skill Studio_0.3.0_aarch64.dmg"
+mkdir -p /tmp/skill-grove-dmg
+cp -R "src-tauri/target/release/bundle/macos/Skill Grove.app" /tmp/skill-grove-dmg/
+ln -s /Applications /tmp/skill-grove-dmg/Applications
+hdiutil create -volname "Skill Grove" -srcfolder /tmp/skill-grove-dmg -ov -format UDZO \
+  "src-tauri/target/release/bundle/dmg/Skill Grove_0.5.0_aarch64.dmg"
 ```
 
 ## Skill Directory Discovery

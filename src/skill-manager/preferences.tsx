@@ -12,18 +12,21 @@ import { translate, type Language, type TranslationKey } from './i18n'
 export type ThemePreference = 'system' | 'light' | 'dark'
 export type LanguagePreference = 'system' | Language
 
-const THEME_STORAGE_KEY = 'skill-studio.theme'
-const LANGUAGE_STORAGE_KEY = 'skill-studio.language'
+const THEME_STORAGE_KEY = 'skill-grove.theme'
+const LANGUAGE_STORAGE_KEY = 'skill-grove.language'
+const DEFAULT_OPEN_TARGET_STORAGE_KEY = 'skill-grove.defaultOpenTarget'
 const WINDOW_BACKGROUND_BY_THEME: Record<'light' | 'dark', Color> = {
   light: '#fafafa',
   dark: '#0f0f10',
 }
 
 type PreferencesContextValue = {
+  defaultOpenTargetId: string | null
   themePreference: ThemePreference
   resolvedTheme: 'light' | 'dark'
   languagePreference: LanguagePreference
   language: Language
+  setDefaultOpenTargetId: (targetId: string | null) => void
   setThemePreference: (theme: ThemePreference) => void
   setLanguagePreference: (language: LanguagePreference) => void
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
@@ -41,6 +44,11 @@ function readLanguagePreference(): LanguagePreference {
   return value === 'zh-CN' || value === 'en-US' || value === 'system' ? value : 'system'
 }
 
+function readDefaultOpenTargetId() {
+  const value = localStorage.getItem(DEFAULT_OPEN_TARGET_STORAGE_KEY)
+  return value && value.trim() ? value : null
+}
+
 function prefersDarkMode() {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
 }
@@ -54,6 +62,7 @@ function getSystemLanguage(): Language {
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>(readThemePreference)
   const [languagePreference, setLanguagePreferenceState] = useState<LanguagePreference>(readLanguagePreference)
+  const [defaultOpenTargetId, setDefaultOpenTargetIdState] = useState<string | null>(readDefaultOpenTargetId)
   const [systemPrefersDark, setSystemPrefersDark] = useState(prefersDarkMode)
   const [systemLanguage] = useState<Language>(getSystemLanguage)
   const resolvedTheme = themePreference === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themePreference
@@ -104,17 +113,29 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setLanguagePreferenceState(nextLanguage)
   }
 
+  const setDefaultOpenTargetId = (targetId: string | null) => {
+    if (targetId) {
+      localStorage.setItem(DEFAULT_OPEN_TARGET_STORAGE_KEY, targetId)
+    } else {
+      localStorage.removeItem(DEFAULT_OPEN_TARGET_STORAGE_KEY)
+    }
+
+    setDefaultOpenTargetIdState(targetId)
+  }
+
   const value = useMemo<PreferencesContextValue>(
     () => ({
+      defaultOpenTargetId,
       themePreference,
       resolvedTheme,
       languagePreference,
       language,
+      setDefaultOpenTargetId,
       setThemePreference,
       setLanguagePreference,
       t: (key, params) => translate(language, key, params),
     }),
-    [language, languagePreference, resolvedTheme, themePreference]
+    [defaultOpenTargetId, language, languagePreference, resolvedTheme, themePreference]
   )
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>

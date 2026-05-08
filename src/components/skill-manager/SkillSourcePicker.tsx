@@ -138,15 +138,6 @@ export function SkillSourcePicker({
       sources: variantGroup.sources.filter((skill) => sourceMatchesQuery(skill, query)),
     }))
     .filter((variantGroup) => variantGroup.sources.length > 0)
-  const sourceSummary =
-    group.variantCount > 1
-      ? t('source.variantSummary', {
-          variantCount: group.variantCount,
-          sourceCount: group.sourceCount,
-        })
-      : group.sourceCount > 1
-        ? t('source.sourceSummary', { sourceCount: group.sourceCount })
-        : t('source.singleSource')
   const sourceHint =
     group.variantCount > 1
       ? t('source.variantHint')
@@ -193,12 +184,9 @@ export function SkillSourcePicker({
 
   return (
     <div className="relative" ref={pickerRef}>
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[12px] font-semibold text-foreground/82">{sourceSummary}</p>
-          <p className="mt-1 text-[12px] leading-5 text-foreground/48">{sourceHint}</p>
-        </div>
-        {group.sourceCount > 1 ? (
+      {group.sourceCount > 1 ? (
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <p className="min-w-0 text-[12px] leading-5 text-foreground/48">{sourceHint}</p>
           <div className="flex shrink-0 items-start">
             <div className="relative">
               <button
@@ -319,8 +307,8 @@ export function SkillSourcePicker({
             ) : null}
             </div>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {group.sourceCount > 1 ? (
         <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] p-3">

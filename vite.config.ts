@@ -468,7 +468,7 @@ function appIconPath(appPath: string) {
 
 function iconDataUrlFromIcns(iconPath: string): SourceIcon | null {
   const token = createHash('sha1').update(iconPath).digest('hex')
-  const outputPath = resolve(tmpdir(), `skill-studio-icon-64-${token}.png`)
+  const outputPath = resolve(tmpdir(), `skill-grove-icon-64-${token}.png`)
 
   if (!existsSync(outputPath)) {
     runOpenCommand('sips', ['-Z', '64', '-s', 'format', 'png', iconPath, '--out', outputPath])

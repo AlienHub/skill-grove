@@ -21,6 +21,7 @@ export function SkillSidebar({
   onSelectAgentSkillConfig,
   onSelectSettings,
   onSelectSkillGroup,
+  pinnedSkillIds,
 }: {
   activeFilter: LibraryFilter
   filteredSkillGroups: SkillGroup[]
@@ -31,6 +32,7 @@ export function SkillSidebar({
   selectedGroupId: string | null
   selectedPanel: 'home' | 'skill' | 'agent-skill-config' | 'settings'
   skillSearchQuery: string
+  pinnedSkillIds: string[]
   onFilterChange: (filter: LibraryFilter) => void
   onSearchChange: (query: string) => void
   onSelectHome: () => void
@@ -164,6 +166,7 @@ export function SkillSidebar({
           <ul className="divide-y divide-border/50">
             {filteredSkillGroups.map((group) => {
               const isSelected = selectedPanel === 'skill' && group.id === selectedGroupId
+              const isPinned = pinnedSkillIds.includes(group.id)
 
               return (
                 <li
@@ -187,6 +190,11 @@ export function SkillSidebar({
                           <h2 className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground">
                             {group.name}
                           </h2>
+                          {isPinned ? (
+                            <span className="shrink-0 text-[12px] leading-none text-accent/72" title={t('activity.pinned')}>
+                              ★
+                            </span>
+                          ) : null}
                           {group.variantCount > 1 ? (
                             <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_10%,var(--surface))] px-2 py-0.5 text-[10px] font-medium text-accent">
                               {t('app.variantBadge', { count: group.variantCount })}

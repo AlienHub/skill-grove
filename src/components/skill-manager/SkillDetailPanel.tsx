@@ -1,4 +1,3 @@
-import { describeSkillGroup } from '../../skill-manager/skillGrouping'
 import { useAppPreferences } from '../../skill-manager/preferences'
 import { changeMessageKeys, changeParams } from '../../skill-manager/libraryPresentation'
 import {
@@ -6,7 +5,6 @@ import {
   type LibraryChange,
   type Skill,
   type SkillGroup,
-  type SkillSuggestion,
 } from '../../skill-manager/types'
 import { SkillMetadataTable, SkillSourceTable } from './SkillInfoTables'
 import { SkillInstructions } from './SkillInstructions'
@@ -14,68 +12,49 @@ import { SkillSourcePicker } from './SkillSourcePicker'
 
 function SkillInsightNotes({
   recentChanges,
-  suggestions,
 }: {
   recentChanges: LibraryChange[]
-  suggestions: SkillSuggestion[]
 }) {
   const { t } = useAppPreferences()
 
-  if (!recentChanges.length && !suggestions.length) {
+  if (!recentChanges.length) {
     return null
   }
 
   return (
-    <div className="mt-4 grid gap-2 sm:grid-cols-2">
-      {recentChanges.length ? (
-        <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] p-3 shadow-minimal-flat">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/38">
-            {t('changes.title')}
+    <div className="mt-4 rounded-[8px] border border-border/50 bg-[var(--surface)] p-3 shadow-minimal-flat">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/38">
+        {t('changes.title')}
+      </p>
+      <div className="mt-2 space-y-1.5">
+        {recentChanges.slice(0, 3).map((change, index) => (
+          <p className="text-[12px] leading-5 text-foreground/58" key={`${change.type}-${change.sourcePath ?? index}`}>
+            {t(changeMessageKeys[change.type], changeParams(change))}
           </p>
-          <div className="mt-2 space-y-1.5">
-            {recentChanges.slice(0, 3).map((change, index) => (
-              <p className="text-[12px] leading-5 text-foreground/58" key={`${change.type}-${change.sourcePath ?? index}`}>
-                {t(changeMessageKeys[change.type], changeParams(change))}
-              </p>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {suggestions.length ? (
-        <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] p-3 shadow-minimal-flat">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground/38">
-            {t('suggestions.title')}
-          </p>
-          <div className="mt-2 space-y-1.5">
-            {suggestions.slice(0, 3).map((suggestion, index) => (
-              <p className="text-[12px] leading-5 text-foreground/58" key={`${suggestion.type}-${suggestion.sourcePath ?? index}`}>
-                {t(suggestion.messageKey, suggestion.params)}
-              </p>
-            ))}
-          </div>
-        </div>
-      ) : null}
+        ))}
+      </div>
     </div>
   )
 }
 
 export function SkillDetailPanel({
+  isPinned,
   openDirectoryTargets,
   recentChanges,
   selectedSkill,
   selectedSkillGroup,
-  suggestions,
   onRemoveSource,
   onSelectSkill,
+  onTogglePinned,
 }: {
+  isPinned: boolean
   openDirectoryTargets: DirectoryOpenTarget[]
   recentChanges: LibraryChange[]
   selectedSkill: Skill
   selectedSkillGroup: SkillGroup
-  suggestions: SkillSuggestion[]
   onRemoveSource: (skill: Skill) => Promise<void>
   onSelectSkill: (skillId: string) => void
+  onTogglePinned: () => void
 }) {
   const { t } = useAppPreferences()
   const detailSummary = t('detail.summary', {
@@ -85,16 +64,12 @@ export function SkillDetailPanel({
 
   return (
     <section className="overflow-y-auto rounded-[8px] bg-[color-mix(in_srgb,var(--foreground)_1.5%,var(--background))] p-5 shadow-minimal">
-      <div className="mb-6">
-        <p className="text-[12px] text-foreground/52">{selectedSkillGroup.location}</p>
-      </div>
-
-      <div className="mb-8 rounded-[8px]">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[14px] font-semibold text-foreground">{selectedSkillGroup.name}</h2>
+      <div className="sticky top-[-1.25rem] z-50 -mx-5 -mt-5 mb-4 border-b border-border/45 bg-[oklch(from_var(--background-elevated)_l_c_h_/_0.84)] px-5 py-3 backdrop-blur-md">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="truncate text-[14px] font-semibold text-foreground">{selectedSkillGroup.name}</h2>
             <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                 selectedSkillGroup.variantCount > 1
                   ? 'bg-[color-mix(in_srgb,var(--accent)_10%,var(--surface))] text-accent'
                   : 'bg-[var(--surface-muted)] text-foreground/52'
@@ -103,16 +78,26 @@ export function SkillDetailPanel({
               {detailSummary}
             </span>
           </div>
-          {selectedSkillGroup.sourceCount > 1 ? (
-            <p className="mt-2 text-[12px] font-medium text-foreground/48">
-              {describeSkillGroup(selectedSkillGroup, t)}
-            </p>
-          ) : null}
-          <p className="mt-2 line-clamp-2 text-[14px] leading-7 text-foreground/56">
-            {selectedSkillGroup.description || selectedSkill.description || t('detail.noDescription')}
-          </p>
-          <SkillInsightNotes recentChanges={recentChanges} suggestions={suggestions} />
+          <button
+            aria-pressed={isPinned}
+            className={`flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border text-[15px] leading-none transition-colors ${
+              isPinned
+                ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-accent hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]'
+                : 'border-transparent bg-transparent text-foreground/34 hover:bg-foreground/5 hover:text-foreground/68'
+            }`}
+            onClick={onTogglePinned}
+            title={isPinned ? t('activity.unpin') : t('activity.pin')}
+            type="button"
+          >
+            {isPinned ? '★' : '☆'}
+          </button>
         </div>
+      </div>
+      <div className="mb-8 rounded-[8px]">
+        <p className="line-clamp-2 text-[14px] leading-7 text-foreground/56">
+          {selectedSkillGroup.description || selectedSkill.description || t('detail.noDescription')}
+        </p>
+        <SkillInsightNotes recentChanges={recentChanges} />
       </div>
 
       <div className="space-y-8">

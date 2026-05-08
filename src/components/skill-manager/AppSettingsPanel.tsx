@@ -1,4 +1,5 @@
 import {
+  type DirectoryOpenTarget,
   type UpdateCheckState,
   type UpdateCheckStatus,
   type UpdateInstallStatus,
@@ -48,6 +49,7 @@ function SegmentedControl<TValue extends string>({
 
 export function AppSettingsPanel({
   currentVersion,
+  openDirectoryTargets,
   updateCheck,
   updateCheckError,
   updateCheckStatus,
@@ -58,6 +60,7 @@ export function AppSettingsPanel({
   onOpenExternalUrl,
 }: {
   currentVersion: string
+  openDirectoryTargets: DirectoryOpenTarget[]
   updateCheck: UpdateCheckState | null
   updateCheckError: string | null
   updateCheckStatus: UpdateCheckStatus
@@ -68,7 +71,9 @@ export function AppSettingsPanel({
   onOpenExternalUrl: (url: string) => void
 }) {
   const {
+    defaultOpenTargetId,
     languagePreference,
+    setDefaultOpenTargetId,
     setLanguagePreference,
     setThemePreference,
     t,
@@ -83,6 +88,15 @@ export function AppSettingsPanel({
     { label: t('settings.languageSystem'), value: 'system' },
     { label: t('settings.languageChinese'), value: 'zh-CN' },
     { label: t('settings.languageEnglish'), value: 'en-US' },
+  ]
+  const defaultOpenTargetValue = defaultOpenTargetId && openDirectoryTargets.some((target) => target.id === defaultOpenTargetId)
+    ? defaultOpenTargetId
+    : 'default'
+  const openTargetOptions: Array<{ label: string; value: string }> = [
+    { label: t('settings.openTargetFileManager'), value: 'default' },
+    ...openDirectoryTargets
+      .filter((target) => target.category === 'editor' || target.category === 'ide')
+      .map((target) => ({ label: target.label, value: target.id })),
   ]
 
   return (
@@ -127,6 +141,27 @@ export function AppSettingsPanel({
                 value={languagePreference}
                 onChange={setLanguagePreference}
               />
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="mb-4 text-[14px] font-semibold text-foreground">{t('settings.openTargetTitle')}</h3>
+          <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 shadow-minimal-flat">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[12px] text-foreground/52">{t('settings.openTargetDescription')}</p>
+              <select
+                aria-label={t('settings.openTargetTitle')}
+                className="h-8 min-w-[180px] rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-2.5 text-[12px] font-medium text-foreground/72 outline-none focus:border-foreground/18"
+                onChange={(event) => setDefaultOpenTargetId(event.target.value === 'default' ? null : event.target.value)}
+                value={defaultOpenTargetValue}
+              >
+                {openTargetOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </section>

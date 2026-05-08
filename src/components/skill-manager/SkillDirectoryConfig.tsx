@@ -8,6 +8,7 @@ import {
 } from '../../skill-manager/fileSelection'
 import { useAppPreferences } from '../../skill-manager/preferences'
 import { type BuiltInDirectoryState, type SourceIcon } from '../../skill-manager/types'
+import { Ripple } from '../ui/Ripple'
 
 export function SkillDirectoryConfig({
   builtInDirectories,
@@ -148,19 +149,21 @@ export function SkillDirectoryConfig({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button
-              className="cursor-pointer rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
               disabled={inputDisabled}
               onClick={handleChooseDirectory}
               type="button"
             >
+              {inputDisabled ? <Ripple size={13} /> : null}
               {chooseButtonLabel}
             </button>
             <button
-              className="cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
               disabled={inputDisabled}
               onClick={onRefresh}
               type="button"
             >
+              {inputDisabled ? <Ripple size={13} /> : null}
               {scanButtonLabel}
             </button>
           </div>

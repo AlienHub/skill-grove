@@ -1062,6 +1062,42 @@ html.dark[data-scenic] .fullscreen-overlay-background {
   animation: shimmer-loading 1.2s linear infinite;
 }
 
+.ripple-loader {
+  color: currentColor;
+  display: inline-block;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.ripple-loader span {
+  animation: ripple-loader 1.2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+  border: 1.5px solid currentColor;
+  border-radius: 9999px;
+  inset: 0;
+  opacity: 1;
+  position: absolute;
+}
+
+.ripple-loader span:nth-child(2) {
+  animation-delay: -0.6s;
+}
+
+@keyframes ripple-loader {
+  0% {
+    opacity: 0;
+    transform: scale(0.18);
+  }
+
+  4% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
 /* Text shimmer - subtle opacity pulse for inline text (title regeneration, etc.) */
 .animate-shimmer-text {
   animation: shimmer-text 1.2s ease-in-out infinite;
