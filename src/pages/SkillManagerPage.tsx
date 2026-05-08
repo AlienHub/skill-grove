@@ -68,6 +68,7 @@ export function SkillManagerPage() {
     () => filterSkillGroups(skillGroups, skillSearchQuery),
     [skillGroups, skillSearchQuery]
   )
+  const hasPendingUpdate = Boolean(updateCheckState?.hasUpdate)
 
   const selectedSkillGroup = useMemo(
     () =>
@@ -223,6 +224,7 @@ export function SkillManagerPage() {
         <div className="grid h-full gap-2 lg:grid-cols-[240px_minmax(0,1fr)]">
           <SkillSidebar
             filteredSkillGroups={filteredSkillGroups}
+            hasPendingUpdate={hasPendingUpdate}
             multiSourceGroupCount={multiSourceGroupCount}
             selectedGroupId={selectedSkillGroup?.id ?? null}
             selectedPanel={selectedPanel}

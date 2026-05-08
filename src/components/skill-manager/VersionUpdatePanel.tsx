@@ -45,11 +45,6 @@ export function VersionUpdatePanel({
   const isInstalling = updateInstallStatus === 'installing'
   const latestVersion = updateCheck?.latestVersion ? `v${updateCheck.latestVersion}` : null
   const checkedAt = updateCheck ? formatCheckedAt(updateCheck.checkedAt, language) : null
-  const handleOpenAsset = () => {
-    if (updateCheck?.assetUrl) {
-      onOpenExternalUrl(updateCheck.assetUrl)
-    }
-  }
   const handleOpenRelease = () => {
     if (updateCheck?.releaseUrl) {
       onOpenExternalUrl(updateCheck.releaseUrl)
@@ -97,11 +92,6 @@ export function VersionUpdatePanel({
             <div className="mt-1 text-[12px] text-foreground/48">
               {checkedAt ? t('updates.lastChecked', { checkedAt }) : t('updates.autoCheckHint')}
             </div>
-            {updateCheck?.hasUpdate && updateCheck.assetName ? (
-              <div className="mt-1 truncate text-[12px] text-foreground/48">
-                {t('updates.asset', { assetName: updateCheck.assetName })}
-              </div>
-            ) : null}
             {updateInstallStatus === 'error' && updateInstallError ? (
               <div className="mt-1 text-[12px] text-red-500/80">{updateInstallError}</div>
             ) : null}
@@ -118,15 +108,6 @@ export function VersionUpdatePanel({
                 >
                   {isInstalling ? t('updates.installing') : t('updates.install')}
                 </button>
-                {updateCheck.assetUrl ? (
-                  <button
-                    className="cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5"
-                    onClick={handleOpenAsset}
-                    type="button"
-                  >
-                    {t('updates.download')}
-                  </button>
-                ) : null}
                 {updateCheck.releaseUrl ? (
                   <button
                     className="cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5"
@@ -137,15 +118,16 @@ export function VersionUpdatePanel({
                   </button>
                 ) : null}
               </>
-            ) : null}
-            <button
-              className="cursor-pointer rounded-[8px] border border-border/60 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
-              disabled={isChecking}
-              onClick={onCheckForUpdates}
-              type="button"
-            >
-              {isChecking ? t('common.checking') : t('updates.checkNow')}
-            </button>
+            ) : (
+              <button
+                className="cursor-pointer rounded-[8px] border border-border/60 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
+                disabled={isChecking}
+                onClick={onCheckForUpdates}
+                type="button"
+              >
+                {isChecking ? t('common.checking') : t('updates.checkNow')}
+              </button>
+            )}
           </div>
         </div>
       </div>

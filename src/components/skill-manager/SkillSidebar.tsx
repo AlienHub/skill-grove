@@ -6,6 +6,7 @@ export function SkillSidebar({
   filteredSkillGroups,
   skillGroups,
   multiSourceGroupCount,
+  hasPendingUpdate,
   selectedGroupId,
   selectedPanel,
   skillSearchQuery,
@@ -17,6 +18,7 @@ export function SkillSidebar({
   filteredSkillGroups: SkillGroup[]
   skillGroups: SkillGroup[]
   multiSourceGroupCount: number
+  hasPendingUpdate: boolean
   selectedGroupId: string | null
   selectedPanel: 'skill' | 'agent-skill-config' | 'settings'
   skillSearchQuery: string
@@ -119,6 +121,7 @@ export function SkillSidebar({
             onClick={onSelectAgentSkillConfig}
           />
           <SettingsEntry
+            badge={hasPendingUpdate ? t('updates.restartBadge') : undefined}
             isSelected={selectedPanel === 'settings'}
             label={t('app.settings')}
             onClick={onSelectSettings}

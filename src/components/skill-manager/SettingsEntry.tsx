@@ -1,9 +1,11 @@
 export function SettingsEntry({
+  badge,
   icon = 'settings',
   isSelected,
   label,
   onClick,
 }: {
+  badge?: string
   icon?: 'agent-skill' | 'settings'
   isSelected: boolean
   label: string
@@ -26,7 +28,7 @@ export function SettingsEntry({
             : 'bg-transparent hover:bg-[color-mix(in_srgb,var(--foreground)_1.5%,var(--background))]'
         }`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <svg
             aria-hidden="true"
             className="size-4 shrink-0 text-foreground/62"
@@ -50,7 +52,12 @@ export function SettingsEntry({
               />
             ) : null}
           </svg>
-          <h2 className="text-[14px] font-normal text-foreground">{label}</h2>
+          <h2 className="min-w-0 flex-1 truncate text-[14px] font-normal text-foreground">{label}</h2>
+          {badge ? (
+            <span className="shrink-0 rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-medium text-foreground/56">
+              {badge}
+            </span>
+          ) : null}
         </div>
       </div>
     </button>
