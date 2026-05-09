@@ -5,29 +5,40 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build
+        required: true
+        default: main
+      tag:
+        description: Release tag, for example v0.6.1
+        required: true
+      draft:
+        description: Create the GitHub release as a draft
+        required: false
+        default: 'false'
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   publish:
+    name: Publish macOS release
+    runs-on: macos-latest
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            args: '--target aarch64-apple-darwin --bundles app,dmg'
-
-    runs-on: ${{ matrix.platform }}
+    env:
+      BUILD_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+      RELEASE_DRAFT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft || 'false' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
+        with:
+          fetch-depth: 0
+          ref: ${{ env.BUILD_REF }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -37,7 +48,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: aarch64-apple-darwin
 
       - name: Cache Rust
         uses: swatinem/rust-cache@v2
@@ -47,6 +58,58 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
+      - name: Verify release version metadata
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const releaseTag = process.env.RELEASE_TAG;
+          if (!releaseTag) {
+            throw new Error('Missing RELEASE_TAG');
+          }
+
+          const expectedVersion = releaseTag.replace(/^v/, '');
+          const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const tauriConfig = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+          const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+          const cargoVersionMatch = cargoToml.match(/^version = "([^"]+)"/m);
+          const releaseNotes = fs.readFileSync('RELEASE_NOTES.md', 'utf8');
+
+          const versions = [
+            ['package.json', packageJson.version],
+            ['src-tauri/tauri.conf.json', tauriConfig.version],
+            ['src-tauri/Cargo.toml', cargoVersionMatch?.[1] ?? null],
+          ];
+
+          for (const [file, actualVersion] of versions) {
+            if (actualVersion !== expectedVersion) {
+              throw new Error(`${file} version ${actualVersion} does not match ${expectedVersion}`);
+            }
+          }
+
+          if (!releaseNotes.includes(`v${expectedVersion}`)) {
+            throw new Error(`RELEASE_NOTES.md does not mention v${expectedVersion}`);
+          }
+          NODE
+
+      - name: Verify frontend types
+        run: bun run typecheck
+
+      - name: Verify frontend build
+        run: bun run build
+
+      - name: Verify Tauri crate
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Load release notes
+        id: release_notes
+        run: |
+          {
+            echo 'body<<EOF'
+            cat RELEASE_NOTES.md
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and publish Tauri bundles
         uses: tauri-apps/tauri-action@v0
         env:
@@ -55,19 +118,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tauriScript: bun run tauri
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
-          releaseName: Skill Grove ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
-          releaseBody: |
-            Skill Grove v0.5.1 adds skill sharing, ZIP export, and soft-link content governance.
-
-            Highlights:
-            - Share a real skill source to another configured Agent by creating a soft link.
-            - Export the current real skill source as a ZIP package for manual sharing.
-            - Convert same-content duplicate real directories into soft-link entries.
-            - Move the original real directory to Trash before conversion so the operation remains locally recoverable.
-
-            Download the macOS DMG installer from the assets below. Signed updater artifacts are also attached for in-app updates.
-          releaseDraft: false
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: Skill Grove ${{ env.RELEASE_TAG }}
+          releaseBody: ${{ steps.release_notes.outputs.body }}
+          releaseDraft: ${{ env.RELEASE_DRAFT == 'true' }}
           prerelease: false
           includeUpdaterJson: true
-          args: ${{ matrix.args }}
+          args: --target aarch64-apple-darwin --bundles app,dmg
