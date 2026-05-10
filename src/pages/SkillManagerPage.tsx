@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { appVersion, initialSkillManagerState } from 'virtual:skill-manager-state'
 import { AgentSkillConfigPanel } from '../components/skill-manager/AgentSkillConfigPanel'
 import { AppSettingsPanel } from '../components/skill-manager/AppSettingsPanel'
@@ -14,8 +14,10 @@ import {
   createSkillSymlink,
   exportSkillZip,
   saveConfiguredDirectories,
+  savePrimarySkillRepository,
   saveSourceIcon,
   convertSkillSourceToSymlink,
+  migrateSkillToPrimaryRepository,
 } from '../skill-manager/api'
 import { buildSkillGroups } from '../skill-manager/skillGrouping'
 import { useAppPreferences } from '../skill-manager/preferences'
@@ -89,6 +91,7 @@ function filterSkillGroups(
 
 export function SkillManagerPage() {
   const { t } = useAppPreferences()
+  const isTauriWindow = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
   const [skillState, setSkillState] = useState<SkillManagerState>(initialSkillManagerState)
   const [hasLoadedSkillState, setHasLoadedSkillState] = useState(false)
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(
@@ -106,6 +109,8 @@ export function SkillManagerPage() {
   const [updateCheckError, setUpdateCheckError] = useState<string | null>(null)
   const [updateInstallStatus, setUpdateInstallStatus] = useState<UpdateInstallStatus>('idle')
   const [updateInstallError, setUpdateInstallError] = useState<string | null>(null)
+  const [isSavingPrimaryRepository, setIsSavingPrimaryRepository] = useState(false)
+  const [primaryRepositoryError, setPrimaryRepositoryError] = useState<string | null>(null)
 
   const skillGroups = useMemo(
     () => sortSkillGroupsByActivity(buildSkillGroups(skillState.skills), libraryActivity),
@@ -194,6 +199,26 @@ export function SkillManagerPage() {
   const handleOpenExternalUrl = useCallback((url: string) => {
     void openExternalUrl(url)
   }, [])
+
+  const handleSavePrimaryRepository = useCallback(
+    async (path: string) => {
+      setPrimaryRepositoryError(null)
+      setIsSavingPrimaryRepository(true)
+      try {
+        const nextState = await savePrimarySkillRepository(path)
+        setSkillState(nextState)
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message.trim()
+            ? error.message.trim()
+            : t('settings.primaryRepositorySaveFailed')
+        setPrimaryRepositoryError(message)
+      } finally {
+        setIsSavingPrimaryRepository(false)
+      }
+    },
+    [t]
+  )
 
   const handleInstallUpdate = useCallback(async () => {
     setUpdateInstallStatus('installing')
@@ -312,13 +337,38 @@ export function SkillManagerPage() {
     setSkillState(nextState)
   }, [])
 
+  const handleMigrateSkillToPrimary = useCallback(async (skill: Skill) => {
+    const nextState = await migrateSkillToPrimaryRepository(skill.skillDirectory)
+    setSkillState(nextState)
+  }, [])
+
   const handleExportSkillZip = useCallback(async (skill: Skill) => {
     await exportSkillZip(skill.skillDirectory, skill.slug || skill.name)
   }, [])
 
+  const handleStartWindowDrag = useCallback(async (event: MouseEvent<HTMLDivElement>) => {
+    if (!isTauriWindow || event.button !== 0) {
+      return
+    }
+
+    const { getCurrentWindow } = await import('@tauri-apps/api/window')
+    void getCurrentWindow().startDragging().catch((error) => {
+      console.warn('Failed to start window dragging', error)
+    })
+  }, [isTauriWindow])
+
   return (
     <div className="h-screen overflow-hidden bg-background text-[14px] text-foreground">
-      <main className="mx-auto h-screen max-w-[1440px] px-4 py-5 sm:px-6">
+      {isTauriWindow ? (
+        <div
+          aria-hidden="true"
+          className="titlebar-drag-region fixed inset-x-0 top-0 z-titlebar h-12 bg-transparent"
+          data-tauri-drag-region
+          onMouseDown={handleStartWindowDrag}
+        />
+      ) : null}
+
+      <main className={`mx-auto h-screen max-w-[1440px] px-4 pb-5 sm:px-6 ${isTauriWindow ? 'pt-12' : 'py-5'}`}>
         {selectedPanel === 'home' ? (
           <div className="h-full">
             <LibraryHomePanel
@@ -369,7 +419,10 @@ export function SkillManagerPage() {
             ) : selectedPanel === 'settings' ? (
               <AppSettingsPanel
                 currentVersion={appVersion}
+                isSavingPrimaryRepository={isSavingPrimaryRepository}
                 openDirectoryTargets={skillState.openDirectoryTargets}
+                primaryRepositoryError={primaryRepositoryError}
+                primarySkillRepository={skillState.primarySkillRepository}
                 updateCheck={updateCheckState}
                 updateCheckError={updateCheckError}
                 updateCheckStatus={updateCheckStatus}
@@ -378,17 +431,20 @@ export function SkillManagerPage() {
                 onCheckForUpdates={handleCheckForUpdates}
                 onInstallUpdate={handleInstallUpdate}
                 onOpenExternalUrl={handleOpenExternalUrl}
+                onSavePrimaryRepository={handleSavePrimaryRepository}
               />
             ) : selectedSkill && selectedSkillGroup ? (
               <SkillDetailPanel
                 configuredDirectories={skillState.configuredDirectories}
                 openDirectoryTargets={skillState.openDirectoryTargets}
+                primarySkillRepository={skillState.primarySkillRepository}
                 recentChanges={libraryVisitState.changesBySkillId[selectedSkillGroup.id] ?? []}
                 isPinned={libraryActivity.pinnedSkillIds.includes(selectedSkillGroup.id)}
                 selectedSkill={selectedSkill}
                 selectedSkillGroup={selectedSkillGroup}
                 onCreateSymlink={handleCreateSkillSymlink}
                 onExportZip={handleExportSkillZip}
+                onMigrateToPrimary={handleMigrateSkillToPrimary}
                 onRemoveSource={handleRemoveSkillSource}
                 onSelectSkill={setSelectedSkillId}
                 onConvertToSymlink={handleConvertSkillSourceToSymlink}

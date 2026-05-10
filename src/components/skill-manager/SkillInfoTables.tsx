@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { AgentIcon } from '../../skill-manager/agentInfo'
 import { displayAgentName } from '../../skill-manager/display'
 import { useAppPreferences } from '../../skill-manager/preferences'
-import { isRealSkillSource } from '../../skill-manager/skillGrouping'
+import { isRealSkillSource, isResolvedSkillUnderPrimaryRepository } from '../../skill-manager/skillGrouping'
 import { type DirectoryOpenTarget, type Skill, type SkillGroup } from '../../skill-manager/types'
 import { DefinitionTable } from './DefinitionTable'
 import { SkillSourceActions, SkillSourceRemoveButton } from './SkillSourceActions'
@@ -94,22 +94,26 @@ export function SkillMetadataTable({ skill }: { skill: Skill }) {
 export function SkillSourceTable({
   configuredDirectories,
   openDirectoryTargets,
+  primarySkillRepository,
   skill,
   skillGroup,
   sourceCount,
   onCreateSymlink,
   onConvertToSymlink,
   onExportZip,
+  onMigrateToPrimary,
   onRemoveSource,
 }: {
   configuredDirectories: string[]
   openDirectoryTargets: DirectoryOpenTarget[]
+  primarySkillRepository: string
   skill: Skill
   skillGroup: SkillGroup
   sourceCount: number
   onCreateSymlink: (skill: Skill, targetSourceDirectory: string) => Promise<void>
   onConvertToSymlink: (skill: Skill, targetSkill: Skill) => Promise<void>
   onExportZip: (skill: Skill) => Promise<void>
+  onMigrateToPrimary: (skill: Skill) => Promise<void>
   onRemoveSource: (skill: Skill) => Promise<void>
 }) {
   const { t } = useAppPreferences()
@@ -125,11 +129,13 @@ export function SkillSourceTable({
         <div className="flex shrink-0 items-center gap-2">
           <SkillSourceGovernanceActions
             configuredDirectories={configuredDirectories}
+            primarySkillRepository={primarySkillRepository}
             skill={skill}
             skillGroup={skillGroup}
             onCreateSymlink={onCreateSymlink}
             onConvertToSymlink={onConvertToSymlink}
             onExportZip={onExportZip}
+            onMigrateToPrimary={onMigrateToPrimary}
           />
           <SkillSourceRemoveButton
             skill={skill}
@@ -183,21 +189,25 @@ function errorText(error: unknown, fallback: string) {
 
 function SkillSourceGovernanceActions({
   configuredDirectories,
+  primarySkillRepository,
   skill,
   skillGroup,
   onCreateSymlink,
   onConvertToSymlink,
   onExportZip,
+  onMigrateToPrimary,
 }: {
   configuredDirectories: string[]
+  primarySkillRepository: string
   skill: Skill
   skillGroup: SkillGroup
   onCreateSymlink: (skill: Skill, targetSourceDirectory: string) => Promise<void>
   onConvertToSymlink: (skill: Skill, targetSkill: Skill) => Promise<void>
   onExportZip: (skill: Skill) => Promise<void>
+  onMigrateToPrimary: (skill: Skill) => Promise<void>
 }) {
   const { t } = useAppPreferences()
-  const [mode, setMode] = useState<'share' | 'convert' | null>(null)
+  const [mode, setMode] = useState<'share' | 'convert' | 'migratePrimary' | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -218,6 +228,8 @@ function SkillSourceGovernanceActions({
     : []
   const hasShareTargets = shareTargets.length > 0
   const hasConvertTargets = convertTargets.length > 0
+  const canMigrateToPrimary =
+    isRealSource && !isResolvedSkillUnderPrimaryRepository(skill.resolvedSkillDirectory, primarySkillRepository)
 
   if (!isRealSource) {
     return null
@@ -261,6 +273,16 @@ function SkillSourceGovernanceActions({
       .finally(() => setIsExporting(false))
   }
 
+  const handleMigrateToPrimary = () => {
+    setIsProcessing(true)
+    setErrorMessage(null)
+
+    void onMigrateToPrimary(skill)
+      .then(() => setMode(null))
+      .catch((error) => setErrorMessage(errorText(error, t('source.migrateToPrimaryFailed'))))
+      .finally(() => setIsProcessing(false))
+  }
+
   return (
     <>
       <button
@@ -296,61 +318,83 @@ function SkillSourceGovernanceActions({
           {t('source.convertToSoftLink')}
         </button>
       ) : null}
+      {canMigrateToPrimary ? (
+        <button
+          className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground"
+          onClick={() => {
+            setErrorMessage(null)
+            setMode('migratePrimary')
+          }}
+          type="button"
+        >
+          {t('source.migrateToPrimary')}
+        </button>
+      ) : null}
 
       {mode ? (
         <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/22 px-4">
           <div className="w-full max-w-[480px] rounded-[8px] border border-border/60 bg-[var(--surface)] p-5 shadow-strong">
             <h4 className="text-[14px] font-semibold text-foreground">
-              {mode === 'share' ? t('source.shareTitle') : t('source.convertToSoftLinkTitle')}
+              {mode === 'share'
+                ? t('source.shareTitle')
+                : mode === 'convert'
+                  ? t('source.convertToSoftLinkTitle')
+                  : t('source.migrateToPrimaryTitle')}
             </h4>
             <p className="mt-2 text-[12px] leading-5 text-foreground/56">
-              {mode === 'share' ? t('source.shareDescription') : t('source.convertToSoftLinkDescription')}
-            </p>
-            <div className="mt-4 max-h-[260px] space-y-1 overflow-y-auto">
               {mode === 'share'
-                ? shareTargets.map((directory) => (
-                    <button
-                      className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition-colors hover:bg-foreground/5 disabled:cursor-default disabled:opacity-55"
-                      disabled={isProcessing}
-                      key={directory}
-                      onClick={() => handleShare(directory)}
-                      type="button"
-                    >
-                      <span className="min-w-0">
-                        <span className="block text-[12px] font-medium text-foreground/78">
-                          {directoryLabel(directory, skillGroup, t)}
+                ? t('source.shareDescription')
+                : mode === 'convert'
+                  ? t('source.convertToSoftLinkDescription')
+                  : t('source.migrateToPrimaryDescription', { path: primarySkillRepository })}
+            </p>
+            {mode === 'share' || mode === 'convert' ? (
+              <div className="mt-4 max-h-[260px] space-y-1 overflow-y-auto">
+                {mode === 'share'
+                  ? shareTargets.map((directory) => (
+                      <button
+                        className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition-colors hover:bg-foreground/5 disabled:cursor-default disabled:opacity-55"
+                        disabled={isProcessing}
+                        key={directory}
+                        onClick={() => handleShare(directory)}
+                        type="button"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-[12px] font-medium text-foreground/78">
+                            {directoryLabel(directory, skillGroup, t)}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11px] text-foreground/42">{directory}</span>
                         </span>
-                        <span className="mt-0.5 block truncate text-[11px] text-foreground/42">{directory}</span>
-                      </span>
-                      {isProcessing ? <Ripple className="text-foreground/48" size={14} /> : null}
-                    </button>
-                  ))
-                : convertTargets.map((targetSkill) => (
-                    <button
-                      className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition-colors hover:bg-foreground/5 disabled:cursor-default disabled:opacity-55"
-                      disabled={isProcessing}
-                      key={targetSkill.id}
-                      onClick={() => handleConvert(targetSkill)}
-                      type="button"
-                    >
-                      <span className="min-w-0">
-                        <span className="block text-[12px] font-medium text-foreground/78">
-                          {displayAgentName(targetSkill.agentId, targetSkill.agentName, t)}
+                        {isProcessing ? <Ripple className="text-foreground/48" size={14} /> : null}
+                      </button>
+                    ))
+                  : convertTargets.map((targetSkill) => (
+                      <button
+                        className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition-colors hover:bg-foreground/5 disabled:cursor-default disabled:opacity-55"
+                        disabled={isProcessing}
+                        key={targetSkill.id}
+                        onClick={() => handleConvert(targetSkill)}
+                        type="button"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-[12px] font-medium text-foreground/78">
+                            {displayAgentName(targetSkill.agentId, targetSkill.agentName, t)}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11px] text-foreground/42">
+                            {targetSkill.skillDirectory}
+                          </span>
                         </span>
-                        <span className="mt-0.5 block truncate text-[11px] text-foreground/42">
-                          {targetSkill.skillDirectory}
-                        </span>
-                      </span>
-                      {isProcessing ? <Ripple className="text-foreground/48" size={14} /> : null}
-                    </button>
-                  ))}
-            </div>
+                        {isProcessing ? <Ripple className="text-foreground/48" size={14} /> : null}
+                      </button>
+                    ))}
+              </div>
+            ) : null}
             {errorMessage ? (
               <p className="mt-3 rounded-[8px] border border-[#b04a3a]/25 bg-[#b04a3a]/7 px-3 py-2 text-[12px] text-[#8f3f33]">
                 {errorMessage}
               </p>
             ) : null}
-            <div className="mt-5 flex justify-end">
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
                 className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 text-[12px] font-medium text-foreground/64 transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-default disabled:opacity-55"
                 disabled={isProcessing}
@@ -359,6 +403,17 @@ function SkillSourceGovernanceActions({
               >
                 {t('common.cancel')}
               </button>
+              {mode === 'migratePrimary' ? (
+                <button
+                  className="flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-default disabled:opacity-55"
+                  disabled={isProcessing}
+                  onClick={handleMigrateToPrimary}
+                  type="button"
+                >
+                  {isProcessing ? <Ripple className="text-background/72" size={12} /> : null}
+                  {t('source.migrateToPrimaryConfirm')}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

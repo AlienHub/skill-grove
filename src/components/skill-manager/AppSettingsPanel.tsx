@@ -4,11 +4,15 @@ import {
   type UpdateCheckStatus,
   type UpdateInstallStatus,
 } from '../../skill-manager/types'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { open } from '@tauri-apps/plugin-dialog'
 import {
   useAppPreferences,
   type LanguagePreference,
   type ThemePreference,
 } from '../../skill-manager/preferences'
+import { normalizeSelectedDirectoryPath } from '../../skill-manager/fileSelection'
+import { Ripple } from '../ui/Ripple'
 import { VersionUpdatePanel } from './VersionUpdatePanel'
 
 function SegmentedControl<TValue extends string>({
@@ -49,7 +53,10 @@ function SegmentedControl<TValue extends string>({
 
 export function AppSettingsPanel({
   currentVersion,
+  isSavingPrimaryRepository,
   openDirectoryTargets,
+  primaryRepositoryError,
+  primarySkillRepository,
   updateCheck,
   updateCheckError,
   updateCheckStatus,
@@ -58,9 +65,13 @@ export function AppSettingsPanel({
   onCheckForUpdates,
   onInstallUpdate,
   onOpenExternalUrl,
+  onSavePrimaryRepository,
 }: {
   currentVersion: string
+  isSavingPrimaryRepository: boolean
   openDirectoryTargets: DirectoryOpenTarget[]
+  primaryRepositoryError: string | null
+  primarySkillRepository: string
   updateCheck: UpdateCheckState | null
   updateCheckError: string | null
   updateCheckStatus: UpdateCheckStatus
@@ -69,6 +80,7 @@ export function AppSettingsPanel({
   onCheckForUpdates: () => void
   onInstallUpdate: () => void
   onOpenExternalUrl: (url: string) => void
+  onSavePrimaryRepository: (path: string) => void | Promise<void>
 }) {
   const {
     defaultOpenTargetId,
@@ -98,6 +110,54 @@ export function AppSettingsPanel({
       .filter((target) => target.category === 'editor' || target.category === 'ide')
       .map((target) => ({ label: target.label, value: target.id })),
   ]
+  const directoryInputRef = useRef<HTMLInputElement>(null)
+  const [draftPrimaryRepository, setDraftPrimaryRepository] = useState(primarySkillRepository)
+
+  useEffect(() => {
+    setDraftPrimaryRepository(primarySkillRepository)
+  }, [primarySkillRepository])
+
+  const isPrimaryRepositoryDirty =
+    draftPrimaryRepository.trim() !== primarySkillRepository.trim()
+
+  const handleChoosePrimaryRepositoryFolder = () => {
+    void open({
+      directory: true,
+      multiple: false,
+    })
+      .then((selectedDirectory) => {
+        if (typeof selectedDirectory === 'string') {
+          setDraftPrimaryRepository(selectedDirectory)
+          return
+        }
+
+        directoryInputRef.current?.click()
+      })
+      .catch(() => {
+        directoryInputRef.current?.click()
+      })
+  }
+
+  const handlePrimaryRepositoryDirectorySelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0] as
+      | (File & { path?: string; webkitRelativePath?: string })
+      | undefined
+
+    if (!selectedFile) {
+      return
+    }
+
+    const selectedDirectory = normalizeSelectedDirectoryPath(
+      selectedFile.path ?? '',
+      selectedFile.webkitRelativePath
+    )
+
+    if (selectedDirectory) {
+      setDraftPrimaryRepository(selectedDirectory)
+    }
+
+    event.target.value = ''
+  }
 
   return (
     <section className="overflow-y-auto rounded-[8px] bg-[color-mix(in_srgb,var(--foreground)_1.5%,var(--background))] p-5 shadow-minimal">
@@ -163,6 +223,77 @@ export function AppSettingsPanel({
                 ))}
               </select>
             </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="mb-4 text-[14px] font-semibold text-foreground">{t('settings.primaryRepositoryTitle')}</h3>
+          <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 shadow-minimal-flat">
+            <p className="mb-3 text-[12px] text-foreground/52">{t('settings.primaryRepositoryDescription')}</p>
+            <input
+              aria-hidden="true"
+              className="hidden"
+              onChange={handlePrimaryRepositoryDirectorySelection}
+              ref={directoryInputRef}
+              type="file"
+              {...({ webkitdirectory: 'true' } as Record<string, string>)}
+            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <input
+                aria-label={t('settings.primaryRepositoryTitle')}
+                className="min-h-9 min-w-0 flex-1 rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-2.5 py-1.5 font-mono text-[12px] text-foreground/88 outline-none focus:border-foreground/18"
+                onChange={(event) => setDraftPrimaryRepository(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' || !isPrimaryRepositoryDirty || isSavingPrimaryRepository) {
+                    return
+                  }
+
+                  event.preventDefault()
+                  void onSavePrimaryRepository(draftPrimaryRepository)
+                }}
+                spellCheck={false}
+                type="text"
+                value={draftPrimaryRepository}
+              />
+              <div className="flex shrink-0 flex-wrap gap-2">
+                {isPrimaryRepositoryDirty || isSavingPrimaryRepository ? (
+                  <button
+                    className="flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={isSavingPrimaryRepository || !isPrimaryRepositoryDirty}
+                    onClick={() => void onSavePrimaryRepository(draftPrimaryRepository)}
+                    type="button"
+                  >
+                    {isSavingPrimaryRepository ? (
+                      <>
+                        <Ripple className="text-background/72" size={12} />
+                        <span>{t('settings.primaryRepositorySaving')}</span>
+                      </>
+                    ) : (
+                      t('settings.primaryRepositorySave')
+                    )}
+                  </button>
+                ) : null}
+                <button
+                  className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-3 text-[12px] font-medium text-foreground/72 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={isSavingPrimaryRepository}
+                  onClick={handleChoosePrimaryRepositoryFolder}
+                  type="button"
+                >
+                  {t('settings.primaryRepositoryChooseFolder')}
+                </button>
+                <button
+                  className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-3 text-[12px] font-medium text-foreground/72 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={isSavingPrimaryRepository}
+                  onClick={() => void onSavePrimaryRepository('~/.agents/skills')}
+                  type="button"
+                >
+                  {t('settings.primaryRepositoryResetDefault')}
+                </button>
+              </div>
+            </div>
+            {primaryRepositoryError ? (
+              <p className="mt-2 text-[12px] text-red-600 dark:text-red-400">{primaryRepositoryError}</p>
+            ) : null}
           </div>
         </section>
 

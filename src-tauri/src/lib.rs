@@ -85,6 +85,8 @@ struct SkillManagerState {
     source_icons: HashMap<String, SourceIcon>,
     #[serde(rename = "openDirectoryTargets")]
     open_directory_targets: Vec<DirectoryOpenTarget>,
+    #[serde(rename = "primarySkillRepository")]
+    primary_skill_repository: String,
     skills: Vec<LocalSkill>,
 }
 
@@ -94,6 +96,8 @@ struct SkillManagerConfig {
     skill_directories: Option<Vec<String>>,
     #[serde(rename = "sourceIcons")]
     source_icons: Option<HashMap<String, SourceIcon>>,
+    #[serde(rename = "primarySkillRepository")]
+    primary_skill_repository: Option<String>,
 }
 
 struct BuiltInSkillDirectory {
@@ -615,6 +619,7 @@ fn read_skill_manager_config() -> SkillManagerConfig {
         return SkillManagerConfig {
             skill_directories: None,
             source_icons: None,
+            primary_skill_repository: None,
         };
     }
 
@@ -622,6 +627,7 @@ fn read_skill_manager_config() -> SkillManagerConfig {
         return SkillManagerConfig {
             skill_directories: None,
             source_icons: None,
+            primary_skill_repository: None,
         };
     };
 
@@ -629,10 +635,45 @@ fn read_skill_manager_config() -> SkillManagerConfig {
         return SkillManagerConfig {
             skill_directories: None,
             source_icons: None,
+            primary_skill_repository: None,
         };
     };
 
     config
+}
+
+fn default_primary_skill_repository_path() -> String {
+    let path = home_dir().join(".agents").join("skills");
+    normalize_configured_directories(vec![path.to_string_lossy().to_string()])
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| path.to_string_lossy().to_string())
+}
+
+fn normalize_primary_skill_repository(input: &str) -> Result<String, String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("主仓库路径不能为空。".to_string());
+    }
+
+    normalize_configured_directories(vec![trimmed.to_string()])
+        .into_iter()
+        .next()
+        .ok_or_else(|| "无法解析主仓库路径。".to_string())
+}
+
+fn read_primary_skill_repository() -> String {
+    let config = read_skill_manager_config();
+    if let Some(raw) = config.primary_skill_repository {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            if let Ok(normalized) = normalize_primary_skill_repository(trimmed) {
+                return normalized;
+            }
+        }
+    }
+
+    default_primary_skill_repository_path()
 }
 
 fn read_user_configured_directories() -> Vec<String> {
@@ -676,6 +717,15 @@ fn write_skill_manager_config(
     skill_directories: Vec<String>,
     source_icons: HashMap<String, SourceIcon>,
 ) -> Result<(), String> {
+    let primary = read_primary_skill_repository();
+    write_skill_manager_config_inner(skill_directories, source_icons, primary)
+}
+
+fn write_skill_manager_config_inner(
+    skill_directories: Vec<String>,
+    source_icons: HashMap<String, SourceIcon>,
+    primary_skill_repository: String,
+) -> Result<(), String> {
     let path = config_path();
 
     if let Some(parent) = path.parent() {
@@ -685,6 +735,7 @@ fn write_skill_manager_config(
     let payload = serde_json::json!({
         "skillDirectories": skill_directories,
         "sourceIcons": source_icons,
+        "primarySkillRepository": primary_skill_repository,
     });
     let content = serde_json::to_string_pretty(&payload).map_err(|error| error.to_string())?;
     fs::write(path, content).map_err(|error| error.to_string())
@@ -1428,8 +1479,20 @@ fn load_skill_manager_state() -> SkillManagerState {
         discovered_directories,
         source_icons,
         open_directory_targets: directory_open_targets(),
+        primary_skill_repository: read_primary_skill_repository(),
         skills,
     }
+}
+
+#[tauri::command]
+fn save_primary_skill_repository(path: String) -> Result<SkillManagerState, String> {
+    let normalized = normalize_primary_skill_repository(&path)?;
+    write_skill_manager_config_inner(
+        read_user_configured_directories(),
+        read_source_icons(),
+        normalized,
+    )?;
+    Ok(load_skill_manager_state())
 }
 
 #[tauri::command]
@@ -1563,6 +1626,64 @@ fn convert_skill_source_to_symlink(
 }
 
 #[tauri::command]
+fn migrate_skill_to_primary_repository(skill_directory: String) -> Result<SkillManagerState, String> {
+    let normalized_skill_directories = normalize_configured_directories(vec![skill_directory]);
+    let Some(skill_directory) = normalized_skill_directories.first() else {
+        return Err("目录不能为空。".to_string());
+    };
+    let skill_directory = Path::new(skill_directory);
+
+    ensure_real_skill_source(skill_directory)?;
+
+    let primary_path = PathBuf::from(read_primary_skill_repository());
+    ensure_target_source_directory(&primary_path)?;
+
+    let real_src = skill_directory
+        .canonicalize()
+        .map_err(|error| format!("无法确认真实 skill 目录：{error}"))?;
+    let primary_canonical = primary_path
+        .canonicalize()
+        .map_err(|error| format!("无法确认主仓库目录：{error}"))?;
+
+    if real_src.starts_with(&primary_canonical) {
+        return Err("当前来源已在主仓库目录内，无需迁移。".to_string());
+    }
+
+    let relative_location = skill_relative_location(skill_directory)?;
+    let dest = primary_path.join(&relative_location);
+
+    if fs::symlink_metadata(&dest).is_ok() {
+        if let Ok(canonical_dest) = dest.canonicalize() {
+            if canonical_dest == real_src {
+                return Err("该 skill 已在主仓库对应该路径。".to_string());
+            }
+        }
+        return Err(format!(
+            "主仓库中已存在冲突路径：{}",
+            dest.to_string_lossy()
+        ));
+    }
+
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent).map_err(|error| format!("无法创建主仓库目录：{error}"))?;
+    }
+
+    fs::rename(skill_directory, &dest)
+        .map_err(|error| format!("移动到主仓库失败：{error}"))?;
+
+    let canonical_dest = dest
+        .canonicalize()
+        .map_err(|error| format!("迁移后无法确认目标路径：{error}"))?;
+
+    if let Err(error) = create_directory_symlink(&canonical_dest, skill_directory) {
+        let _ = fs::rename(&dest, skill_directory);
+        return Err(error);
+    }
+
+    Ok(load_skill_manager_state())
+}
+
+#[tauri::command]
 fn export_skill_zip(skill_directory: String, output_path: String) -> Result<(), String> {
     let normalized_directories = normalize_configured_directories(vec![skill_directory]);
     let Some(normalized_directory) = normalized_directories.first() else {
@@ -1610,12 +1731,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             load_skill_manager_state,
+            save_primary_skill_repository,
             save_configured_directories,
             save_source_icon,
             open_skill_directory,
             remove_skill_source,
             create_skill_symlink,
             convert_skill_source_to_symlink,
+            migrate_skill_to_primary_repository,
             export_skill_zip,
             open_external_url,
         ])

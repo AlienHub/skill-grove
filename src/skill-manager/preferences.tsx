@@ -15,10 +15,6 @@ export type LanguagePreference = 'system' | Language
 const THEME_STORAGE_KEY = 'skill-grove.theme'
 const LANGUAGE_STORAGE_KEY = 'skill-grove.language'
 const DEFAULT_OPEN_TARGET_STORAGE_KEY = 'skill-grove.defaultOpenTarget'
-const WINDOW_BACKGROUND_BY_THEME: Record<'light' | 'dark', Color> = {
-  light: '#fafafa',
-  dark: '#0f0f10',
-}
 
 type PreferencesContextValue = {
   defaultOpenTargetId: string | null
@@ -91,10 +87,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
 
     const appWindow = getCurrentWindow()
+    const { backgroundColor } = getComputedStyle(document.documentElement)
     void appWindow.setTheme(resolvedTheme).catch((error) => {
       console.warn('Failed to sync native window theme', error)
     })
-    void appWindow.setBackgroundColor(WINDOW_BACKGROUND_BY_THEME[resolvedTheme]).catch((error) => {
+    void appWindow.setBackgroundColor(backgroundColor as Color).catch((error) => {
       console.warn('Failed to sync native window background', error)
     })
   }, [resolvedTheme])

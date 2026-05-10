@@ -120,6 +120,26 @@ export async function saveConfiguredDirectories(directories: string[]) {
   return (await response.json()) as SkillManagerState
 }
 
+export async function savePrimarySkillRepository(path: string) {
+  if ('__TAURI_INTERNALS__' in window) {
+    return await invoke<SkillManagerState>('save_primary_skill_repository', { path })
+  }
+
+  const response = await fetch(`${skillManagerApiBase}/primary-repository`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ path }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, 'Failed to update primary skill repository'))
+  }
+
+  return (await response.json()) as SkillManagerState
+}
+
 export async function saveSourceIcon(directory: string, icon: SourceIcon | null) {
   if ('__TAURI_INTERNALS__' in window) {
     return await invoke<SkillManagerState>('save_source_icon', { directory, icon })
@@ -214,6 +234,26 @@ export async function convertSkillSourceToSymlink(skillDirectory: string, target
 
   if (!response.ok) {
     throw new Error(await responseError(response, 'Failed to convert source'))
+  }
+
+  return (await response.json()) as SkillManagerState
+}
+
+export async function migrateSkillToPrimaryRepository(skillDirectory: string) {
+  if ('__TAURI_INTERNALS__' in window) {
+    return await invoke<SkillManagerState>('migrate_skill_to_primary_repository', { skillDirectory })
+  }
+
+  const response = await fetch(`${skillManagerApiBase}/migrate-to-primary`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ skillDirectory }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, 'Failed to migrate skill to primary repository'))
   }
 
   return (await response.json()) as SkillManagerState

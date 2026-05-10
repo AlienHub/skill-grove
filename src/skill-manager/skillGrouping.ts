@@ -13,6 +13,20 @@ export function isRealSkillSource(skill: Skill) {
   return skill.skillDirectory === skill.resolvedSkillDirectory
 }
 
+function normalizePathForPrefix(path: string) {
+  return path.replace(/\\/g, '/').replace(/\/+$/, '')
+}
+
+/** True when the resolved skill directory is the primary root or a subdirectory of it. */
+export function isResolvedSkillUnderPrimaryRepository(
+  resolvedSkillDirectory: string,
+  primaryRepository: string
+) {
+  const child = normalizePathForPrefix(resolvedSkillDirectory)
+  const root = normalizePathForPrefix(primaryRepository)
+  return child === root || child.startsWith(`${root}/`)
+}
+
 export function getSourceTypeLabel(skill: Skill) {
   if (!isRealSkillSource(skill)) {
     return '软链接'

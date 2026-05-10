@@ -50,12 +50,14 @@ export function SkillDetailPanel({
   configuredDirectories,
   isPinned,
   openDirectoryTargets,
+  primarySkillRepository,
   recentChanges,
   selectedSkill,
   selectedSkillGroup,
   onCreateSymlink,
   onConvertToSymlink,
   onExportZip,
+  onMigrateToPrimary,
   onRemoveSource,
   onSelectSkill,
   onTogglePinned,
@@ -63,12 +65,14 @@ export function SkillDetailPanel({
   configuredDirectories: string[]
   isPinned: boolean
   openDirectoryTargets: DirectoryOpenTarget[]
+  primarySkillRepository: string
   recentChanges: LibraryChange[]
   selectedSkill: Skill
   selectedSkillGroup: SkillGroup
   onCreateSymlink: (skill: Skill, targetSourceDirectory: string) => Promise<void>
   onConvertToSymlink: (skill: Skill, targetSkill: Skill) => Promise<void>
   onExportZip: (skill: Skill) => Promise<void>
+  onMigrateToPrimary: (skill: Skill) => Promise<void>
   onRemoveSource: (skill: Skill) => Promise<void>
   onSelectSkill: (skillId: string) => void
   onTogglePinned: () => void
@@ -132,12 +136,14 @@ export function SkillDetailPanel({
             <SkillSourceTable
               configuredDirectories={configuredDirectories}
               openDirectoryTargets={openDirectoryTargets}
+              primarySkillRepository={primarySkillRepository}
               skill={selectedSkill}
               skillGroup={selectedSkillGroup}
               sourceCount={selectedSkillGroup.sourceCount}
               onCreateSymlink={onCreateSymlink}
               onConvertToSymlink={onConvertToSymlink}
               onExportZip={onExportZip}
+              onMigrateToPrimary={onMigrateToPrimary}
               onRemoveSource={onRemoveSource}
             />
           </div>

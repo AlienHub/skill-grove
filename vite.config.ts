@@ -71,12 +71,14 @@ type SkillManagerState = {
   discoveredDirectories: string[]
   sourceIcons: Record<string, SourceIcon>
   openDirectoryTargets: DirectoryOpenTarget[]
+  primarySkillRepository: string
   skills: LocalSkill[]
 }
 
 type SkillManagerConfig = {
   skillDirectories?: unknown
   sourceIcons?: unknown
+  primarySkillRepository?: unknown
 }
 
 const BUILT_IN_SKILL_DIRECTORIES = [
@@ -355,11 +357,47 @@ function readSourceIcons() {
   return normalizeSourceIcons(readSkillManagerConfig().sourceIcons)
 }
 
+function defaultPrimarySkillRepositoryPath(): string {
+  const [normalized] = normalizeConfiguredDirectories([resolve(homedir(), '.agents', 'skills')])
+  return normalized ?? resolve(homedir(), '.agents', 'skills')
+}
+
+function readPrimarySkillRepository(): string {
+  const config = readSkillManagerConfig()
+  const raw = config.primarySkillRepository
+  if (typeof raw === 'string' && raw.trim()) {
+    const [normalized] = normalizeConfiguredDirectories([raw.trim()])
+    if (normalized) {
+      return normalized
+    }
+  }
+
+  return defaultPrimarySkillRepositoryPath()
+}
+
+function normalizePrimarySkillRepositoryForSave(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed) {
+    throw new Error('主仓库路径不能为空。')
+  }
+
+  const [normalized] = normalizeConfiguredDirectories([trimmed])
+  if (!normalized) {
+    throw new Error('无法解析主仓库路径。')
+  }
+
+  return normalized
+}
+
 function normalizeSourceIconForDirectory(directory: string, icon: unknown) {
   return normalizeSourceIcons({ [directory]: icon })[normalizeConfiguredDirectories([directory])[0] ?? directory]
 }
 
-function writeSkillManagerConfig(config: { skillDirectories: string[]; sourceIcons: Record<string, SourceIcon> }) {
+function writeSkillManagerConfig(config: {
+  skillDirectories: string[]
+  sourceIcons: Record<string, SourceIcon>
+  primarySkillRepository: string
+}) {
   mkdirSync(dirname(SKILL_MANAGER_CONFIG_PATH), { recursive: true })
   writeFileSync(
     SKILL_MANAGER_CONFIG_PATH,
@@ -372,6 +410,7 @@ function writeConfiguredDirectories(directories: string[]) {
   writeSkillManagerConfig({
     skillDirectories: normalizeConfiguredDirectories(directories).filter((directory) => !isBuiltInDirectory(directory)),
     sourceIcons: readSourceIcons(),
+    primarySkillRepository: readPrimarySkillRepository(),
   })
 }
 
@@ -391,7 +430,18 @@ function writeSourceIcon(directory: string, icon: SourceIcon | null) {
   writeSkillManagerConfig({
     skillDirectories: readUserConfiguredDirectories(),
     sourceIcons,
+    primarySkillRepository: readPrimarySkillRepository(),
   })
+}
+
+function savePrimarySkillRepositoryForApi(path: string) {
+  const normalized = normalizePrimarySkillRepositoryForSave(path)
+  writeSkillManagerConfig({
+    skillDirectories: readUserConfiguredDirectories(),
+    sourceIcons: readSourceIcons(),
+    primarySkillRepository: normalized,
+  })
+  return loadSkillManagerState()
 }
 
 function runOpenCommand(command: string, args: string[]) {
@@ -800,6 +850,69 @@ function convertSkillSourceToSymlinkForApi(skillDirectory: string, targetSkillDi
   return loadSkillManagerState()
 }
 
+function migrateSkillToPrimaryRepositoryForApi(skillDirectory: string) {
+  const [normalizedSkillDirectory] = normalizeConfiguredDirectories([skillDirectory])
+  if (!normalizedSkillDirectory) {
+    throw new Error('目录不能为空。')
+  }
+
+  ensureRealSkillSource(normalizedSkillDirectory)
+  const primary = readPrimarySkillRepository()
+  ensureTargetSourceDirectory(primary)
+
+  const realSrc = realpathSync(normalizedSkillDirectory)
+  const primaryResolved = realpathSync(primary)
+  const norm = (value: string) => value.replace(/\\/g, '/').replace(/\/+$/, '')
+  const insidePrimary =
+    norm(realSrc) === norm(primaryResolved) || norm(realSrc).startsWith(`${norm(primaryResolved)}/`)
+  if (insidePrimary) {
+    throw new Error('当前来源已在主仓库目录内，无需迁移。')
+  }
+
+  const relativeLocation = skillRelativeLocation(normalizedSkillDirectory)
+  const dest = resolve(primary, relativeLocation)
+
+  let destExists = false
+  try {
+    lstatSync(dest)
+    destExists = true
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error instanceof Error ? error : new Error(String(error))
+    }
+  }
+
+  if (destExists) {
+    try {
+      if (realpathSync(dest) === realSrc) {
+        throw new Error('该 skill 已在主仓库对应该路径。')
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('已在主仓库')) {
+        throw error
+      }
+    }
+    throw new Error(`主仓库中已存在冲突路径：${dest}`)
+  }
+
+  mkdirSync(dirname(dest), { recursive: true })
+  try {
+    renameSync(normalizedSkillDirectory, dest)
+  } catch (error) {
+    throw new Error(`移动到主仓库失败：${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  const canonicalDest = realpathSync(dest)
+  try {
+    createDirectorySymlink(canonicalDest, normalizedSkillDirectory)
+  } catch (error) {
+    renameSync(dest, normalizedSkillDirectory)
+    throw error instanceof Error ? error : new Error(String(error))
+  }
+
+  return loadSkillManagerState()
+}
+
 function exportSkillZipForApi(skillDirectory: string) {
   const [normalizedDirectory] = normalizeConfiguredDirectories([skillDirectory])
   if (!normalizedDirectory) {
@@ -1011,6 +1124,7 @@ function loadSkillManagerState(): SkillManagerState {
     ),
     sourceIcons,
     openDirectoryTargets: getDirectoryOpenTargets(),
+    primarySkillRepository: readPrimarySkillRepository(),
     skills,
   }
 }
@@ -1064,6 +1178,24 @@ function installSkillManagerApi(server: ViteDevServer) {
       } catch (error) {
         sendJson(res, 400, {
           error: error instanceof Error ? error.message : 'Failed to update directories',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/primary-repository` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { path?: unknown }
+        if (typeof body.path !== 'string') {
+          sendJson(res, 400, { error: 'path must be a string' })
+          return
+        }
+
+        sendJson(res, 200, savePrimarySkillRepositoryForApi(body.path))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to update primary repository',
         })
       }
 
@@ -1175,6 +1307,24 @@ function installSkillManagerApi(server: ViteDevServer) {
       } catch (error) {
         sendJson(res, 400, {
           error: error instanceof Error ? error.message : 'Failed to convert source',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/migrate-to-primary` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+
+        sendJson(res, 200, migrateSkillToPrimaryRepositoryForApi(body.skillDirectory))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to migrate skill',
         })
       }
 
@@ -1239,6 +1389,24 @@ function installSkillManagerPreviewApi(server: PreviewServer) {
       return
     }
 
+    if (url === `${SKILL_MANAGER_API_BASE}/primary-repository` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { path?: unknown }
+        if (typeof body.path !== 'string') {
+          sendJson(res, 400, { error: 'path must be a string' })
+          return
+        }
+
+        sendJson(res, 200, savePrimarySkillRepositoryForApi(body.path))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to update primary repository',
+        })
+      }
+
+      return
+    }
+
     if (url === `${SKILL_MANAGER_API_BASE}/source-icon` && req.method === 'POST') {
       try {
         const body = (await readRequestJson(req)) as { directory?: unknown; icon?: unknown }
@@ -1344,6 +1512,24 @@ function installSkillManagerPreviewApi(server: PreviewServer) {
       } catch (error) {
         sendJson(res, 400, {
           error: error instanceof Error ? error.message : 'Failed to convert source',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/migrate-to-primary` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { skillDirectory?: unknown }
+        if (typeof body.skillDirectory !== 'string') {
+          sendJson(res, 400, { error: 'skillDirectory must be a string' })
+          return
+        }
+
+        sendJson(res, 200, migrateSkillToPrimaryRepositoryForApi(body.skillDirectory))
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to migrate skill',
         })
       }
 

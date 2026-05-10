@@ -28,6 +28,7 @@ declare module 'virtual:skill-manager-state' {
         value: string
       } | null
     }>
+    primarySkillRepository: string
     skills: Array<{
       id: string
       slug: string
