@@ -14,35 +14,92 @@
   <img alt="Status" src="https://img.shields.io/badge/status-initial%20release-7C3AED.svg">
 </p>
 
-Skill Grove 是一个独立的 Tauri v2 桌面应用，用来浏览、对比和整理本机 Agent Skills。它会扫描常见 Agent 的 skill 目录，合并重复或软链接来源，并让每个 skill 的来源、内容版本和最近变化更容易理解。
+**Skill Grove 是一个开源的本地 Agent Skill 治理工作台。**
+
+Agent Skill 正在成为一种新的软件制品。它不是 Prompt，不是 Workflow，也不只是 Tool 的包装。一个 Skill 更像是面向 Agent 的上下文能力包：它告诉 Agent 什么时候应该加载、应该读取什么、遵守什么约束，以及如何避免已知的失败模式。
+
+Skill Grove 希望帮助用户把这些 Skill 当作长期可维护的 Agent 能力资产，而不是散落在不同目录里的本地文件。当前应用保持克制：先用一个本地桌面工作台让 Skill 资产变得可见、可读、可比较，然后逐步演进到评估、上下文成本分析和 Skill 生命周期治理。
+
+> Prompt 是一次性指令。  
+> Skill 是可维护的 Agent 能力资产。
 
 ## 目录
 
-- [特性](#特性)
+- [为什么需要 Skill 治理](#为什么需要-skill-治理)
+- [Skill Grove 当前能做什么](#skill-grove-当前能做什么)
+- [设计原则](#设计原则)
+- [路线方向](#路线方向)
 - [快速开始](#快速开始)
-- [验证](#验证)
-- [打包](#打包)
-- [Skill 目录扫描](#skill-目录扫描)
+- [开发验证](#开发验证)
 - [配置文件](#配置文件)
-- [图标与标题栏](#图标与标题栏)
 - [项目结构](#项目结构)
 - [贡献](#贡献)
 - [许可证](#许可证)
 
-## 特性
+## 为什么需要 Skill 治理
 
-- 本地浏览 `SKILL.md`，适合作为 Agent skill 的桌面索引与检查器。
-- 仅在检测到对应 app 或 CLI 已安装时扫描内置 Agent skill 目录，同时保留用户手动配置的目录。
-- 多来源 skill 自动聚合：默认按来源数量从多到少排序，数量相同按 skill 名称排序。
-- 区分真实文件、软链接入口和内容一致的变体，方便判断 skill 的实际来源。
-- 查看最近变化、收藏重要 skill，并让最近看过的 skill 更靠前。
-- 来源表格和元数据表格使用统一 12px 字体、白色背景和细边框。
-- 长 Markdown 说明支持 sticky mini header、优化后的排版和 frontmatter 展示。
-- 支持为来源操作配置默认编辑器或 IDE 打开方式。
-- 基于 `@lobehub/icons` 展示 Agent 来源图标，未知来源使用闪电 fallback。
-- 支持为来源目录上传自定义 `.png` / `.svg` 图标，并持久化保存。
-- 多来源 skill 使用弹层式来源选择器，避免横向 tab 在来源过多时挤占页面。
-- macOS app 使用 Tauri 原生透明标题栏，隐藏重复标题，并配置自定义 app logo。
+随着 Claude、Codex、Cursor、OpenCode、Goose、Kiro、Qwen、Trae 等 Agent Runtime 逐渐支持或接近 Skill 形态，用户会在本地积累越来越多的 Agent 能力资产。真正的问题不再只是“我的 Skill 在哪里”，而是：
+
+- 我的本地 Agent 环境里到底有哪些 Skill？
+- 哪些 Skill 是重复的、软链接的、过期的，或者内容不一致？
+- 哪些 Skill description 太宽泛，可能导致错误路由？
+- 哪些 Skill 消耗了过多上下文，但没有带来足够收益？
+- 哪些 references、scripts、assets 真的构成了一个可复用能力？
+- 如何把 Agent 反复犯的错误沉淀为 gotchas、examples 和 eval cases？
+
+Skill Grove 从本地可见性开始，因为治理始于资产盘点。一个 Skill 在被评估、优化和信任之前，首先需要被发现、被阅读、被比较、被解释。
+
+## Skill Grove 当前能做什么
+
+Skill Grove 当前是一个独立的 Tauri v2 桌面应用，专注于 Agent Skill 治理的第一层：让本地 Skill 资产可见、可理解。
+
+当前能力：
+
+- 本地浏览 `SKILL.md`，适合作为 Agent Skill 的桌面索引与检查器。
+- 自动发现常见 Agent 的 Skill 目录，并保留用户手动配置的目录。
+- 聚合同名 Skill 的多个来源，帮助识别重复、软链接和内容变体。
+- 查看 Skill 的来源、元数据、最近变化、收藏状态和阅读记录。
+- 阅读长 Markdown 说明，展示 frontmatter，并保持清晰排版。
+- 为来源操作配置默认编辑器或 IDE 打开方式。
+- 使用 `@lobehub/icons` 展示 Agent 来源图标，并支持自定义来源图标。
+- 支持 macOS 桌面应用打包，使用原生透明标题栏和自定义 app 图标。
+
+## 设计原则
+
+### 1. Skill 是资产，不是片段
+
+一个有价值的 Skill 不只是 Markdown 文件。它可能包含路由描述、执行说明、references、scripts、examples、assets 和 gotchas。Skill Grove 将 Skill 视为一个能力包，而不是一段孤立文本。
+
+### 2. 每个 Skill 都有上下文成本
+
+Skill 越多，Agent 不一定越强。每个 Skill description 都会带来索引成本，每次加载 `SKILL.md` 都会带来上下文成本，每个模糊 reference 都会增加执行不确定性。Skill Grove 希望逐步让这些成本变得可见。
+
+### 3. 路由准确性也是质量的一部分
+
+好的 Skill 不只是写得清楚，还应该在正确场景下被加载，在错误场景下被避免，并明确告诉 Agent 应该读取哪些文件或参考资料。后续版本会更关注 routing clarity、重叠检测和 negative examples。
+
+### 4. Gotcha 是 Skill 进化的最小单位
+
+Agent 失败不应该消失在聊天历史里。重复错误可以沉淀为 gotchas、examples、evals，或者直接成为对 Skill 的补丁。Skill Grove 会探索如何把失败记忆转化为可维护的 Skill 改进。
+
+### 5. 先本地优先，再平台化
+
+Skill 往往分散在个人工作站、IDE、CLI 和不同 Agent Runtime 里。Skill Grove 选择 local-first，让用户先理解自己的 Skill 环境，再考虑更重的协作或平台能力。
+
+## 路线方向
+
+Skill Grove 还处于早期阶段。接下来会从 Skill 浏览器，逐步演进为一个小而明确的 Agent Skill 治理工作台。
+
+计划方向：
+
+- **Skill Quality Hints**：识别过宽 description、缺失 examples、缺失 gotchas、未引用 references、过长说明等问题。
+- **Context Cost Analysis**：估算 index cost、加载正文成本和 reference footprint。
+- **Routing Conflict Review**：识别 Skill 描述之间的重叠和潜在误触发风险。
+- **Gotcha Capture**：帮助用户把真实 Agent 失败沉淀为候选 gotcha 和 Skill patch。
+- **Eval Seeds**：基于现有 Skill 和用户反馈生成正向 / 负向路由测试用例。
+- **Invocation Analytics**：在 Agent Runtime 暴露调用轨迹后，分析 Skill 的真实调用效果。
+
+目标不是做一个很重的企业控制台，而是让 Agent Skill Engineering 变得具体、轻量、可落地。
 
 ## 快速开始
 
@@ -70,21 +127,13 @@ bun run dev
 http://127.0.0.1:5176
 ```
 
-## 验证
+## 开发验证
 
 ```bash
 bun run typecheck
 bun run build
 cd src-tauri && cargo check
 ```
-
-生产预览使用 `5177` 端口：
-
-```bash
-bun run preview
-```
-
-## 打包
 
 构建 DMG：
 
@@ -98,17 +147,7 @@ bun run dmg
 src-tauri/target/release/bundle/macos/Skill Grove.app
 ```
 
-在 macOS 26 上，Tauri 内置 DMG wrapper 可能会在最后的 `create-dmg` 阶段失败。如果发生这种情况，可以手动把已生成的 `.app` 打成 DMG：
-
-```bash
-mkdir -p /tmp/skill-grove-dmg
-cp -R "src-tauri/target/release/bundle/macos/Skill Grove.app" /tmp/skill-grove-dmg/
-ln -s /Applications /tmp/skill-grove-dmg/Applications
-hdiutil create -volname "Skill Grove" -srcfolder /tmp/skill-grove-dmg -ov -format UDZO \
-  "src-tauri/target/release/bundle/dmg/Skill Grove_0.6.1_aarch64.dmg"
-```
-
-## Skill 目录扫描
+## 配置文件
 
 Skill Grove 的用户配置文件位于：
 
@@ -116,62 +155,7 @@ Skill Grove 的用户配置文件位于：
 ~/.agents/skill-manager.json
 ```
 
-目录读取策略：
-
-- 用户配置目录始终会经过规范化和去重，目录存在时参与扫描。
-- 内置候选目录会在设置页中区分为已安装 Agent 与不可用 Agent。
-- 内置目录只有在检测到对应 app 或 CLI 已安装，并且 skill 目录存在时才参与扫描。
-- 不可用 Agent 即使留下了内置目录，也不会计入 skill 统计。
-
-当前内置候选目录：
-
-```text
-~/.agents/skills
-~/.codex/skills
-~/.claude/skills
-~/.cursor/skills
-~/.config/opencode/skills
-~/.gemini/antigravity/skills
-~/.config/agents/skills
-~/.kilocode/skills
-~/.roo/skills
-~/.config/goose/skills
-~/.gemini/skills
-~/.copilot/skills
-~/.openclaw/skills
-~/.factory/skills
-~/.codeium/windsurf/skills
-~/.trae/skills
-~/.deepagents/agent/skills
-~/.firebender/skills
-~/.augment/skills
-~/.bob/skills
-~/.codebuddy/skills
-~/.commandcode/skills
-~/.snowflake/cortex/skills
-~/.config/crush/skills
-~/.iflow/skills
-~/.junie/skills
-~/.kiro/skills
-~/.kode/skills
-~/.mcpjam/skills
-~/.vibe/skills
-~/.mux/skills
-~/.neovate/skills
-~/.openhands/skills
-~/.pi/agent/skills
-~/.pochi/skills
-~/.qoder/skills
-~/.qwen/skills
-~/.trae-cn/skills
-~/.zencoder/skills
-~/.adal/skills
-~/.hermes/skills
-```
-
-## 配置文件
-
-示例 `~/.agents/skill-manager.json`：
+示例：
 
 ```json
 {
@@ -190,41 +174,9 @@ Skill Grove 的用户配置文件位于：
 
 字段说明：
 
-- `skillDirectories`：用户手动配置的 skill 根目录。
+- `skillDirectories`：用户手动配置的 Skill 根目录。
 - `sourceIcons`：来源目录到自定义图标的映射，key 为规范化后的来源目录。
 - 自定义图标优先级高于内置 `@lobehub/icons` 映射。
-
-## 图标与标题栏
-
-浏览器 favicon 源文件：
-
-```text
-public/app-icon.svg
-```
-
-Tauri bundle 图标目录：
-
-```text
-src-tauri/icons
-```
-
-从 SVG 或 PNG 重新生成 bundle 图标：
-
-```bash
-bun tauri icon /path/to/icon.svg --output src-tauri/icons
-```
-
-macOS 窗口使用原生透明标题栏：
-
-```json
-{
-  "titleBarStyle": "Transparent",
-  "hiddenTitle": true,
-  "backgroundColor": "#fafafa"
-}
-```
-
-这样可以保留 macOS 原生红黄绿按钮，同时避免前端重复绘制标题栏。
 
 ## 项目结构
 
@@ -244,10 +196,10 @@ src-tauri/icons             生成后的 app 图标资源
 
 欢迎通过 Issue 或 Pull Request 讨论下面这些方向：
 
-- 增加新的 Agent skill 目录候选项。
+- 增加新的 Agent Skill 目录候选项。
 - 为更多 Agent 来源补充 `@lobehub/icons` 映射。
-- 增加“永久忽略内置目录”配置。
-- 优化大规模 skill 集合下的搜索、排序和性能。
+- 优化 Skill 资产盘点、多来源聚合和本地工作台体验。
+- 探索围绕路由清晰度、上下文成本、references、examples、gotchas 和 eval seeds 的质量提示。
 - 增加更多平台的打包验证。
 
 提交前建议运行：
@@ -266,4 +218,4 @@ cd src-tauri && cargo check
 
 - dev 和 preview 模式通过 `/__skill_manager__` 暴露本地扫描 API。
 - 生产模式使用 Tauri commands 完成扫描、保存目录和保存来源图标。
-- 当前初版会把 skill 内容注入 virtual state module，并引入多个 icon 组件，因此构建时出现 large chunk warning 是预期现象。
+- 当前版本会把 Skill 内容注入 virtual state module，并引入多个 icon 组件，因此构建时出现 large chunk warning 是预期现象。
