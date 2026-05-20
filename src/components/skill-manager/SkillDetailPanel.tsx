@@ -188,7 +188,7 @@ export function SkillDetailPanel({
                 >
                   ?
                 </button>
-                <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-[min(24rem,calc(100vw-3rem))] rounded-[8px] border border-black/10 bg-white p-3 text-[11px] leading-5 text-foreground/62 shadow-[0_8px_24px_rgba(15,23,42,0.14)] group-hover/help:block group-focus-within/help:block">
+                <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-[min(24rem,calc(100vw-3rem))] rounded-[8px] border border-border/60 bg-popover p-3 text-[11px] leading-5 text-popover-foreground shadow-[0_8px_24px_rgba(15,23,42,0.14)] group-hover/help:block group-focus-within/help:block">
                   <div className="space-y-2">
                     {usageHelpItems.map((item, index) => (
                       <p key={`${item.slice(0, 20)}-${index}`}>{item}</p>
