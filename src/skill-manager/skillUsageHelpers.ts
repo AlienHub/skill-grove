@@ -104,6 +104,7 @@ export function usageByAgentForGroup(
   const claudeCounts = countsBySkillMdPathBySource['claude-code'] ?? fallbackCountsBySkillMdPath
   const codexCounts = countsBySkillMdPathBySource.codex ?? {}
   const openclawCounts = countsBySkillMdPathBySource.openclaw ?? {}
+  const craftAgentsCounts = countsBySkillMdPathBySource['craft-agents'] ?? {}
 
   return [
     {
@@ -120,6 +121,11 @@ export function usageByAgentForGroup(
       agentId: 'openclaw',
       agentName: 'OpenClaw',
       count: usageCountForGroup(group, openclawCounts),
+    },
+    {
+      agentId: 'craft_agents',
+      agentName: 'Craft Agents',
+      count: usageCountForGroup(group, craftAgentsCounts),
     },
   ]
 }

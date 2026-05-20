@@ -14,6 +14,7 @@ const SHARED_CATALOG_CONSUMER_AGENT_IDS = new Set([
   'augment',
   'claude',
   'codex',
+  'craft_agents',
   'cursor',
   'gemini',
   'github_copilot',

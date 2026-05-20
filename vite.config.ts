@@ -81,7 +81,15 @@ type SkillManagerConfig = {
   primarySkillRepository?: unknown
 }
 
-const BUILT_IN_SKILL_DIRECTORIES = [
+type BuiltInSkillDirectory = {
+  path: string
+  agentId: string
+  agentName: string
+  commands: readonly string[]
+  appNames: readonly string[]
+}
+
+const STATIC_BUILT_IN_SKILL_DIRECTORIES = [
   { path: resolve(homedir(), '.agents/skills'), agentId: 'agents', agentName: 'Agents', commands: [], appNames: [] },
   { path: resolve(homedir(), '.codex/skills'), agentId: 'codex', agentName: 'Codex', commands: ['codex'], appNames: ['Codex'] },
   { path: resolve(homedir(), '.claude/skills'), agentId: 'claude', agentName: 'Claude', commands: ['claude'], appNames: ['Claude'] },
@@ -123,7 +131,7 @@ const BUILT_IN_SKILL_DIRECTORIES = [
   { path: resolve(homedir(), '.zencoder/skills'), agentId: 'zencoder', agentName: 'Zencoder', commands: ['zencoder'], appNames: ['Zencoder'] },
   { path: resolve(homedir(), '.adal/skills'), agentId: 'adal', agentName: 'AdaL', commands: ['adal'], appNames: [] },
   { path: resolve(homedir(), '.hermes/skills'), agentId: 'hermes', agentName: 'Hermes', commands: ['hermes'], appNames: ['Hermes'] },
-] as const
+] as const satisfies readonly BuiltInSkillDirectory[]
 const OPEN_APP_CANDIDATES = [
   { id: 'vscode', label: 'Visual Studio Code', category: 'ide', appName: 'Visual Studio Code' },
   { id: 'cursor', label: 'Cursor', category: 'ide', appName: 'Cursor' },
@@ -158,7 +166,7 @@ function devSkillUsageState() {
     countsBySkillMdPathBySource: {} as Record<string, Record<string, number>>,
     lastScanAt: null as string | null,
     scanNote:
-      'Web preview: usage counting runs only in the desktop app and currently scans Claude Code and Codex transcripts only.',
+      'Web preview: usage counting runs only in the desktop app and scans Claude Code, Codex, OpenClaw, and Craft Agents transcripts.',
   }
 }
 
@@ -202,8 +210,61 @@ function normalizeConfiguredDirectories(directories: string[]) {
     })
 }
 
+function readCraftAgentSkillDirectories(): BuiltInSkillDirectory[] {
+  const configPath = resolve(homedir(), '.craft-agent/config.json')
+  let parsed: { workspaces?: unknown }
+  try {
+    parsed = JSON.parse(readFileSync(configPath, 'utf8')) as { workspaces?: unknown }
+  } catch {
+    return []
+  }
+
+  if (!Array.isArray(parsed.workspaces)) {
+    return []
+  }
+
+  const seen = new Set<string>()
+  return parsed.workspaces.flatMap((workspace): BuiltInSkillDirectory[] => {
+    if (!workspace || typeof workspace !== 'object') {
+      return []
+    }
+
+    const rootPath = (workspace as { rootPath?: unknown }).rootPath
+    if (typeof rootPath !== 'string' || !rootPath.trim()) {
+      return []
+    }
+
+    const expanded = expandHomeDirectory(rootPath.trim())
+    const absolute = expanded.startsWith('/') ? expanded : resolve(homedir(), expanded)
+    const workspaceRoot = (() => {
+      try {
+        return realpathSync(absolute)
+      } catch {
+        return absolute
+      }
+    })()
+    const path = resolve(workspaceRoot, 'skills')
+    if (seen.has(path)) {
+      return []
+    }
+
+    seen.add(path)
+    return [{
+      path,
+      agentId: 'craft_agents',
+      agentName: 'Craft Agents',
+      commands: ['craft-agents', 'craft-agent', 'craft'],
+      appNames: ['Craft Agents', 'Craft'],
+    }]
+  })
+}
+
+function builtInSkillDirectories(): BuiltInSkillDirectory[] {
+  return [...STATIC_BUILT_IN_SKILL_DIRECTORIES, ...readCraftAgentSkillDirectories()]
+}
+
 function isBuiltInDirectory(directory: string) {
-  return BUILT_IN_SKILL_DIRECTORIES.some((builtInDirectory) => builtInDirectory.path === directory)
+  return builtInSkillDirectories().some((builtInDirectory) => builtInDirectory.path === directory)
 }
 
 function commandExists(command: string) {
@@ -272,8 +333,8 @@ function appExists(appName: string) {
   })
 }
 
-function isBuiltInAgentInstalled(directory: (typeof BUILT_IN_SKILL_DIRECTORIES)[number]) {
-  if (directory.agentId === 'agents') {
+function isBuiltInAgentInstalled(directory: BuiltInSkillDirectory) {
+  if (directory.agentId === 'agents' || directory.agentId === 'craft_agents') {
     try {
       return existsSync(directory.path) && statSync(directory.path).isDirectory()
     } catch {
@@ -285,7 +346,7 @@ function isBuiltInAgentInstalled(directory: (typeof BUILT_IN_SKILL_DIRECTORIES)[
 }
 
 function getBuiltInDirectoryStates(): BuiltInDirectoryState[] {
-  return BUILT_IN_SKILL_DIRECTORIES
+  return builtInSkillDirectories()
     .map((directory) => {
       let directoryExists = false
       try {
@@ -628,7 +689,7 @@ function openDirectoryWithTarget(directory: string, target: string) {
 
 function getAgentInfoForDirectory(directory: string) {
   const normalizedDirectory = resolve(directory)
-  const matchedBuiltIn = [...BUILT_IN_SKILL_DIRECTORIES]
+  const matchedBuiltIn = [...builtInSkillDirectories()]
     .sort((left, right) => right.path.length - left.path.length)
     .find((candidate) => normalizedDirectory === candidate.path || normalizedDirectory.startsWith(`${candidate.path}/`))
 
@@ -1190,7 +1251,7 @@ function installSkillManagerApi(server: ViteDevServer) {
           lastScanAt: new Date().toISOString(),
           scanNote:
             dirs.length > 0
-              ? `Web preview: ${dirs.length} path(s) for this skill only; desktop app scans Claude Code and Codex transcripts.`
+              ? `Web preview: ${dirs.length} path(s) for this skill only; desktop app scans Claude Code, Codex, OpenClaw, and Craft Agents transcripts.`
               : 'Web preview: POST resolvedSkillDirectories[] for the current skill.',
         })
       } catch {
@@ -1422,7 +1483,7 @@ function installSkillManagerPreviewApi(server: PreviewServer) {
           lastScanAt: new Date().toISOString(),
           scanNote:
             dirs.length > 0
-              ? `Web preview: ${dirs.length} path(s) for this skill only; desktop app scans Claude Code and Codex transcripts.`
+              ? `Web preview: ${dirs.length} path(s) for this skill only; desktop app scans Claude Code, Codex, OpenClaw, and Craft Agents transcripts.`
               : 'Web preview: POST resolvedSkillDirectories[] for the current skill.',
         })
       } catch {

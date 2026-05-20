@@ -1,5 +1,6 @@
 mod claude;
 mod codex;
+mod craft_agents;
 mod openclaw;
 
 use serde::{Deserialize, Serialize};
@@ -105,6 +106,9 @@ pub fn refresh_skill_usage_for_paths(
     notes.extend(codex_notes);
     let (openclaw_counts, openclaw_notes) = openclaw::scan_openclaw_session_jsonl(&allowed);
     notes.extend(openclaw_notes);
+    let (craft_agents_counts, craft_agents_notes) =
+        craft_agents::scan_craft_agents_session_jsonl(&allowed);
+    notes.extend(craft_agents_notes);
 
     let mut snapshot = load_skill_usage_from_disk();
     snapshot.version = USAGE_FILE_VERSION;
@@ -112,6 +116,7 @@ pub fn refresh_skill_usage_for_paths(
     let claude_source = "claude-code".to_string();
     let codex_source = "codex".to_string();
     let openclaw_source = "openclaw".to_string();
+    let craft_agents_source = "craft-agents".to_string();
     let claude_source_counts = snapshot
         .counts_by_skill_md_path_by_source
         .entry(claude_source)
@@ -139,6 +144,15 @@ pub fn refresh_skill_usage_for_paths(
         openclaw_source_counts.insert(path.clone(), count);
     }
 
+    let craft_agents_source_counts = snapshot
+        .counts_by_skill_md_path_by_source
+        .entry(craft_agents_source)
+        .or_default();
+    for path in &allowed {
+        let count = *craft_agents_counts.get(path).unwrap_or(&0);
+        craft_agents_source_counts.insert(path.clone(), count);
+    }
+
     for path in &allowed {
         let total = snapshot
             .counts_by_skill_md_path_by_source
@@ -151,7 +165,7 @@ pub fn refresh_skill_usage_for_paths(
     snapshot.last_scan_at = Some(rfc3339_now());
 
     let scope_note = format!(
-        "范围：当前技能 {} 个来源版本（Claude Code invoked_skills + Codex/OpenClaw SKILL.md 读取，且仅更新此项，其它技能计数不变）",
+        "范围：当前技能 {} 个来源版本（Claude Code invoked_skills + Codex/OpenClaw/Craft Agents SKILL.md 读取，且仅更新此项，其它技能计数不变）",
         allowed.len()
     );
     notes.insert(0, scope_note);

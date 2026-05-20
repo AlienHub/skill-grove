@@ -102,6 +102,17 @@ struct SkillManagerConfig {
     primary_skill_repository: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct CraftAgentWorkspaceConfig {
+    #[serde(rename = "rootPath")]
+    root_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CraftAgentConfig {
+    workspaces: Option<Vec<CraftAgentWorkspaceConfig>>,
+}
+
 struct BuiltInSkillDirectory {
     path: PathBuf,
     agent_id: &'static str,
@@ -174,7 +185,7 @@ fn open_app_candidates() -> Vec<OpenAppCandidate> {
 
 fn built_in_skill_directories() -> Vec<BuiltInSkillDirectory> {
     let home = home_dir();
-    vec![
+    let mut directories = vec![
         BuiltInSkillDirectory {
             path: home.join(".agents").join("skills"),
             agent_id: "agents",
@@ -462,7 +473,55 @@ fn built_in_skill_directories() -> Vec<BuiltInSkillDirectory> {
             commands: &["hermes"],
             app_names: &["Hermes"],
         },
-    ]
+    ];
+
+    directories.extend(craft_agent_skill_directories());
+    directories
+}
+
+fn craft_agent_skill_directories() -> Vec<BuiltInSkillDirectory> {
+    let config_path = home_dir().join(".craft-agent").join("config.json");
+    let Ok(raw) = fs::read_to_string(config_path) else {
+        return Vec::new();
+    };
+    let Ok(config) = serde_json::from_str::<CraftAgentConfig>(&raw) else {
+        return Vec::new();
+    };
+
+    let mut seen = HashSet::new();
+    let mut directories = Vec::new();
+    for workspace in config.workspaces.unwrap_or_default() {
+        let Some(root_path) = workspace.root_path.as_deref() else {
+            continue;
+        };
+        let trimmed = root_path.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let expanded = expand_home_directory(trimmed);
+        let absolute = if expanded.is_absolute() {
+            expanded
+        } else {
+            home_dir().join(expanded)
+        };
+        let workspace_root = absolute.canonicalize().unwrap_or(absolute);
+        let skills_path = workspace_root.join("skills");
+        let key = skills_path.to_string_lossy().to_string();
+        if !seen.insert(key) {
+            continue;
+        }
+
+        directories.push(BuiltInSkillDirectory {
+            path: skills_path,
+            agent_id: "craft_agents",
+            agent_name: "Craft Agents",
+            commands: &["craft-agents", "craft-agent", "craft"],
+            app_names: &["Craft Agents", "Craft"],
+        });
+    }
+
+    directories
 }
 
 fn expand_home_directory(input: &str) -> PathBuf {
@@ -575,7 +634,7 @@ fn app_exists(app_name: &str) -> bool {
 }
 
 fn is_built_in_agent_installed(directory: &BuiltInSkillDirectory) -> bool {
-    if directory.agent_id == "agents" {
+    if directory.agent_id == "agents" || directory.agent_id == "craft_agents" {
         return directory.path.is_dir();
     }
 

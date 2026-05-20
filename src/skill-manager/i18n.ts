@@ -191,9 +191,9 @@ const translations = {
     'detail.usageAgent': 'Agent',
     'detail.usageCount': 'Load 次数',
     'detail.usageEmpty':
-      '暂无 Claude Code / Codex / OpenClaw load 记录。桌面版会扫描本机 transcript。',
+      '暂无 Claude Code / Codex / OpenClaw / Craft Agents load 记录。桌面版会扫描本机 transcript。',
     'detail.usageFootnote':
-      '数据来源：Claude Code transcript 中的 invoked_skills 事件，以及 Codex/OpenClaw session 中直接读取当前 SKILL.md 的记录。Bash/exec 中直接执行 CLI、普通文本提及、启动时的 skill_listing / 可用技能清单、sessions.json catalog 都不计入。当前暂不统计 Cursor、Gemini 等其它 Agent；Web 预览不读磁盘。',
+      '数据来源：Claude Code transcript 中的 invoked_skills 事件，以及 Codex/OpenClaw/Craft Agents session 中直接读取当前 SKILL.md 的记录。Bash/exec 中直接执行 CLI、普通文本提及、启动时的 skill_listing / 可用技能清单、sessions.json catalog 都不计入。当前暂不统计 Cursor、Gemini 等其它 Agent；Web 预览不读磁盘。',
     'detail.usageScanNote': '说明：{note}',
     'source.variantLabel': '版本 {label}',
     'source.variantNumber': '版本 {number}',
@@ -459,9 +459,9 @@ const translations = {
     'detail.usageAgent': 'Agent',
     'detail.usageCount': 'Loads',
     'detail.usageEmpty':
-      'No Claude Code / Codex / OpenClaw load record yet. The desktop app scans local transcripts.',
+      'No Claude Code / Codex / OpenClaw / Craft Agents load record yet. The desktop app scans local transcripts.',
     'detail.usageFootnote':
-      'Source: invoked_skills events in Claude Code transcripts, plus direct reads of the current SKILL.md in Codex/OpenClaw sessions. Direct CLI execution in Bash/exec, plain text mentions, startup skill_listing / available-skill lists, and sessions.json catalogs are ignored. Cursor, Gemini, and other Agents are not counted yet; web preview does not read disk.',
+      'Source: invoked_skills events in Claude Code transcripts, plus direct reads of the current SKILL.md in Codex/OpenClaw/Craft Agents sessions. Direct CLI execution in Bash/exec, plain text mentions, startup skill_listing / available-skill lists, and sessions.json catalogs are ignored. Cursor, Gemini, and other Agents are not counted yet; web preview does not read disk.',
     'detail.usageScanNote': 'Note: {note}',
     'source.variantLabel': 'Version {label}',
     'source.variantNumber': 'Version {number}',

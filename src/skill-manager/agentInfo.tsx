@@ -42,6 +42,7 @@ const AGENT_DIRECTORY_MARKERS: Array<AgentInfo & { marker: string }> = [
   { marker: '/.roo/skills', agentId: 'roo_code', agentName: 'Roo Code' },
   { marker: '/.copilot/skills', agentId: 'github_copilot', agentName: 'GitHub Copilot' },
   { marker: '/.openclaw/skills', agentId: 'openclaw', agentName: 'OpenClaw' },
+  { marker: '/.craft-agent/workspaces', agentId: 'craft_agents', agentName: 'Craft Agents' },
   { marker: '/.factory/skills', agentId: 'droid', agentName: 'Droid' },
   { marker: '/.codeium/windsurf/skills', agentId: 'windsurf', agentName: 'Windsurf' },
   { marker: '/.trae-cn/skills', agentId: 'trae_cn', agentName: 'TRAE CN' },
