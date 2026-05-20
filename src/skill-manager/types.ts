@@ -4,6 +4,14 @@ import { type TranslationKey } from './i18n'
 
 export type SkillManagerState = typeof initialSkillManagerState
 export type Skill = SkillManagerState['skills'][number]
+
+export type SkillUsageSnapshot = {
+  version: number
+  countsBySkillMdPath: Record<string, number>
+  countsBySkillMdPathBySource: Record<string, Record<string, number>>
+  lastScanAt: string | null
+  scanNote: string | null
+}
 export type SourceIcon = SkillManagerState['sourceIcons'][string]
 export type BuiltInDirectoryState = SkillManagerState['builtInDirectories'][number]
 export type DirectoryOpenTarget = SkillManagerState['openDirectoryTargets'][number]

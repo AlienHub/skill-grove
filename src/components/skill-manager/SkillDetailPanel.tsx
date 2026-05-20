@@ -6,7 +6,9 @@ import {
   type LibraryChange,
   type Skill,
   type SkillGroup,
+  type SkillUsageSnapshot,
 } from '../../skill-manager/types'
+import { usageByAgentForGroup } from '../../skill-manager/skillUsageHelpers'
 import { SkillMetadataTable, SkillSourceTable } from './SkillInfoTables'
 import { SkillInstructions } from './SkillInstructions'
 import { SkillSourcePicker } from './SkillSourcePicker'
@@ -54,6 +56,9 @@ export function SkillDetailPanel({
   recentChanges,
   selectedSkill,
   selectedSkillGroup,
+  skillUsage,
+  usageRefreshing,
+  onRefreshUsage,
   onCreateSymlink,
   onConvertToSymlink,
   onExportZip,
@@ -69,6 +74,9 @@ export function SkillDetailPanel({
   recentChanges: LibraryChange[]
   selectedSkill: Skill
   selectedSkillGroup: SkillGroup
+  skillUsage: SkillUsageSnapshot
+  usageRefreshing: boolean
+  onRefreshUsage: () => void
   onCreateSymlink: (skill: Skill, targetSourceDirectory: string) => Promise<void>
   onConvertToSymlink: (skill: Skill, targetSkill: Skill) => Promise<void>
   onExportZip: (skill: Skill) => Promise<void>
@@ -79,6 +87,25 @@ export function SkillDetailPanel({
 }) {
   const { t } = useAppPreferences()
   const catalogTokens = estimateResidentCatalogTokens(selectedSkill)
+  const usageRows = usageByAgentForGroup(
+    selectedSkillGroup,
+    skillUsage.countsBySkillMdPathBySource ?? {},
+    skillUsage.countsBySkillMdPath,
+  )
+  const totalUsageCount = usageRows.reduce((sum, row) => sum + row.count, 0)
+  const usageHelpItems = [
+    totalUsageCount === 0 ? t('detail.usageEmpty') : null,
+    skillUsage.scanNote ? t('detail.usageScanNote', { note: skillUsage.scanNote }) : null,
+    t('detail.usageFootnote'),
+  ].filter((item): item is string => Boolean(item))
+  const lastScanLabel = skillUsage.lastScanAt
+    ? (() => {
+        const parsed = Date.parse(skillUsage.lastScanAt)
+        return Number.isFinite(parsed)
+          ? new Date(parsed).toLocaleString()
+          : skillUsage.lastScanAt
+      })()
+    : null
   const detailSummary = t('detail.summary', {
     variantCount: selectedSkillGroup.variantCount || 1,
     sourceCount: selectedSkillGroup.sourceCount,
@@ -146,6 +173,61 @@ export function SkillDetailPanel({
               onMigrateToPrimary={onMigrateToPrimary}
               onRemoveSource={onRemoveSource}
             />
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-[14px] font-semibold text-foreground">{t('detail.usageTitle')}</h3>
+              <div className="group/help relative inline-flex">
+                <button
+                  aria-label={t('detail.usageHelp')}
+                  className="flex size-5 cursor-help items-center justify-center rounded-full border border-border/60 bg-[var(--surface)] text-[12px] font-semibold text-foreground/50 transition-colors hover:border-foreground/20 hover:text-foreground/78 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                  type="button"
+                >
+                  ?
+                </button>
+                <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-[min(24rem,calc(100vw-3rem))] rounded-[8px] border border-black/10 bg-white p-3 text-[11px] leading-5 text-foreground/62 shadow-[0_8px_24px_rgba(15,23,42,0.14)] group-hover/help:block group-focus-within/help:block">
+                  <div className="space-y-2">
+                    {usageHelpItems.map((item, index) => (
+                      <p key={`${item.slice(0, 20)}-${index}`}>{item}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[11px] text-foreground/42">
+                {lastScanLabel ? t('detail.usageLastScan', { time: lastScanLabel }) : t('detail.usageNoScan')}
+              </p>
+              <button
+                className="rounded-md border border-border/60 bg-[var(--surface)] px-2.5 py-1 text-[12px] font-medium text-foreground/80 transition-colors hover:bg-foreground/5 disabled:opacity-50"
+                disabled={usageRefreshing}
+                onClick={onRefreshUsage}
+                type="button"
+              >
+                {usageRefreshing ? t('detail.usageRefreshing') : t('detail.usageRefresh')}
+              </button>
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-[8px] border border-border/50">
+            <table className="w-full border-collapse text-left text-[12px]">
+              <thead>
+                <tr className="border-b border-border/45 bg-[var(--surface-muted)] text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground/45">
+                  <th className="px-3 py-2 font-semibold">{t('detail.usageAgent')}</th>
+                  <th className="px-3 py-2 text-right font-semibold">{t('detail.usageCount')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usageRows.map((usageRow) => (
+                  <tr className="border-b border-border/35 last:border-b-0" key={usageRow.agentId}>
+                    <td className="px-3 py-2 text-foreground/78">{usageRow.agentName}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/88">{usageRow.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
 

@@ -1,6 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
 import { appVersion, skillManagerApiBase } from 'virtual:skill-manager-state'
-import { type DirectoryOpenTarget, type SkillManagerState, type SourceIcon, type UpdateCheckState } from './types'
+import {
+  type DirectoryOpenTarget,
+  type SkillManagerState,
+  type SkillUsageSnapshot,
+  type SourceIcon,
+  type UpdateCheckState,
+} from './types'
 
 export type OpenDirectoryTarget = DirectoryOpenTarget['id']
 
@@ -98,6 +104,48 @@ export async function fetchSkillManagerState() {
   }
 
   return (await response.json()) as SkillManagerState
+}
+
+function emptyDevSkillUsage(): SkillUsageSnapshot {
+  return {
+    version: 1,
+    countsBySkillMdPath: {},
+    countsBySkillMdPathBySource: {},
+    lastScanAt: null,
+    scanNote: null,
+  }
+}
+
+export async function loadSkillUsageState() {
+  if ('__TAURI_INTERNALS__' in window) {
+    return await invoke<SkillUsageSnapshot>('load_skill_usage_state')
+  }
+
+  const response = await fetch(`${skillManagerApiBase}/skill-usage`)
+  if (!response.ok) {
+    return emptyDevSkillUsage()
+  }
+
+  return (await response.json()) as SkillUsageSnapshot
+}
+
+export async function refreshSkillUsage(resolvedSkillDirectories: string[]) {
+  if ('__TAURI_INTERNALS__' in window) {
+    return await invoke<SkillUsageSnapshot>('refresh_skill_usage', { resolvedSkillDirectories })
+  }
+
+  const response = await fetch(`${skillManagerApiBase}/skill-usage/refresh`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ resolvedSkillDirectories }),
+  })
+  if (!response.ok) {
+    return emptyDevSkillUsage()
+  }
+
+  return (await response.json()) as SkillUsageSnapshot
 }
 
 export async function saveConfiguredDirectories(directories: string[]) {

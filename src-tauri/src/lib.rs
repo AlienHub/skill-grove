@@ -11,6 +11,8 @@ use std::{
     sync::OnceLock,
 };
 
+mod skill_usage;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct SourceIcon {
     #[serde(rename = "type")]
@@ -1073,8 +1075,7 @@ fn move_source_to_trash(skill_directory: &Path) -> Result<PathBuf, String> {
         .and_then(|value| value.to_str())
         .ok_or_else(|| "来源目录名称不可用。".to_string())?;
     let trash_directory = home_dir().join(".Trash");
-    fs::create_dir_all(&trash_directory)
-        .map_err(|error| format!("无法访问系统废纸篓：{error}"))?;
+    fs::create_dir_all(&trash_directory).map_err(|error| format!("无法访问系统废纸篓：{error}"))?;
     let destination = unique_trash_path(&trash_directory, file_name);
 
     fs::rename(skill_directory, &destination)
@@ -1153,8 +1154,8 @@ fn skill_relative_location(skill_directory: &Path) -> Result<PathBuf, String> {
 
 fn skill_file_hash(skill_directory: &Path) -> Result<String, String> {
     let skill_file = skill_directory.join("SKILL.md");
-    let source = fs::read_to_string(&skill_file)
-        .map_err(|error| format!("无法读取 SKILL.md：{error}"))?;
+    let source =
+        fs::read_to_string(&skill_file).map_err(|error| format!("无法读取 SKILL.md：{error}"))?;
 
     Ok(stable_content_hash(&source))
 }
@@ -1170,8 +1171,8 @@ fn add_directory_to_zip(
     root_name: &str,
     options: zip::write::SimpleFileOptions,
 ) -> Result<(), String> {
-    let entries = fs::read_dir(current_directory)
-        .map_err(|error| format!("读取目录失败：{error}"))?;
+    let entries =
+        fs::read_dir(current_directory).map_err(|error| format!("读取目录失败：{error}"))?;
 
     for entry in entries.flatten() {
         let entry_path = entry.path();
@@ -1198,8 +1199,8 @@ fn add_directory_to_zip(
         if file_type.is_file() {
             zip.start_file(archive_name, options)
                 .map_err(|error| format!("写入压缩文件失败：{error}"))?;
-            let mut source_file = File::open(&entry_path)
-                .map_err(|error| format!("读取文件失败：{error}"))?;
+            let mut source_file =
+                File::open(&entry_path).map_err(|error| format!("读取文件失败：{error}"))?;
             let mut buffer = Vec::new();
             source_file
                 .read_to_end(&mut buffer)
@@ -1226,11 +1227,10 @@ fn export_skill_zip_to_path(skill_directory: &Path, output_path: &Path) -> Resul
         fs::create_dir_all(parent).map_err(|error| format!("无法创建导出目录：{error}"))?;
     }
 
-    let file = File::create(output_path)
-        .map_err(|error| format!("无法创建 ZIP 文件：{error}"))?;
+    let file = File::create(output_path).map_err(|error| format!("无法创建 ZIP 文件：{error}"))?;
     let mut zip = zip::ZipWriter::new(file);
-    let options = zip::write::SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Stored);
+    let options =
+        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     zip.add_directory(format!("{root_name}/"), options)
         .map_err(|error| format!("写入压缩目录失败：{error}"))?;
@@ -1534,8 +1534,7 @@ fn remove_skill_source(skill_directory: String) -> Result<SkillManagerState, Str
         .map_err(|error| format!("来源不存在或无法访问：{error}"))?;
 
     if metadata.file_type().is_symlink() {
-        fs::remove_file(skill_directory)
-            .map_err(|error| format!("移除软链接失败：{error}"))?;
+        fs::remove_file(skill_directory).map_err(|error| format!("移除软链接失败：{error}"))?;
     } else {
         move_source_to_trash(skill_directory)?;
     }
@@ -1626,7 +1625,9 @@ fn convert_skill_source_to_symlink(
 }
 
 #[tauri::command]
-fn migrate_skill_to_primary_repository(skill_directory: String) -> Result<SkillManagerState, String> {
+fn migrate_skill_to_primary_repository(
+    skill_directory: String,
+) -> Result<SkillManagerState, String> {
     let normalized_skill_directories = normalize_configured_directories(vec![skill_directory]);
     let Some(skill_directory) = normalized_skill_directories.first() else {
         return Err("目录不能为空。".to_string());
@@ -1668,8 +1669,7 @@ fn migrate_skill_to_primary_repository(skill_directory: String) -> Result<SkillM
         fs::create_dir_all(parent).map_err(|error| format!("无法创建主仓库目录：{error}"))?;
     }
 
-    fs::rename(skill_directory, &dest)
-        .map_err(|error| format!("移动到主仓库失败：{error}"))?;
+    fs::rename(skill_directory, &dest).map_err(|error| format!("移动到主仓库失败：{error}"))?;
 
     let canonical_dest = dest
         .canonicalize()
@@ -1721,6 +1721,22 @@ fn open_external_url(url: String) -> Result<(), String> {
 
     #[allow(unreachable_code)]
     Err("当前平台暂不支持打开外部链接。".to_string())
+}
+
+#[tauri::command]
+fn load_skill_usage_state() -> skill_usage::SkillUsageSnapshot {
+    skill_usage::load_skill_usage_from_disk()
+}
+
+#[tauri::command]
+async fn refresh_skill_usage(
+    resolved_skill_directories: Vec<String>,
+) -> Result<skill_usage::SkillUsageSnapshot, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        skill_usage::refresh_skill_usage_for_paths(&resolved_skill_directories)
+    })
+    .await
+    .map_err(|e| format!("调用统计扫描线程异常: {e}"))?
 }
 
 #[cfg(target_os = "macos")]
@@ -1778,6 +1794,8 @@ pub fn run() {
             migrate_skill_to_primary_repository,
             export_skill_zip,
             open_external_url,
+            load_skill_usage_state,
+            refresh_skill_usage,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Skill Grove");

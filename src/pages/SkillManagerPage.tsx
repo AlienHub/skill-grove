@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { appVersion, initialSkillManagerState } from 'virtual:skill-manager-state'
 import { AgentSkillConfigPanel } from '../components/skill-manager/AgentSkillConfigPanel'
 import { AppSettingsPanel } from '../components/skill-manager/AppSettingsPanel'
@@ -9,7 +9,9 @@ import {
   checkForUpdates,
   fetchSkillManagerState,
   installUpdateAndRelaunch,
+  loadSkillUsageState,
   openExternalUrl,
+  refreshSkillUsage,
   removeSkillSource,
   createSkillSymlink,
   exportSkillZip,
@@ -41,6 +43,7 @@ import {
   type LibraryVisitState,
   type SkillGroup,
   type SkillManagerState,
+  type SkillUsageSnapshot,
   type SourceIcon,
   type UpdateCheckState,
   type UpdateCheckStatus,
@@ -48,6 +51,14 @@ import {
 } from '../skill-manager/types'
 
 type SelectedPanel = 'home' | 'skill' | 'agent-skill-config' | 'settings'
+
+const emptySkillUsage: SkillUsageSnapshot = {
+  version: 1,
+  countsBySkillMdPath: {},
+  countsBySkillMdPathBySource: {},
+  lastScanAt: null,
+  scanNote: null,
+}
 
 const emptyLibraryVisitState: LibraryVisitState = {
   capturedAt: null,
@@ -89,6 +100,10 @@ function filterSkillGroups(
   })
 }
 
+function resolvedSkillDirectoriesForGroup(group: SkillGroup) {
+  return [...new Set(group.skills.map((skill) => skill.resolvedSkillDirectory))]
+}
+
 export function SkillManagerPage() {
   const { t } = useAppPreferences()
   const isTauriWindow = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -111,6 +126,9 @@ export function SkillManagerPage() {
   const [updateInstallError, setUpdateInstallError] = useState<string | null>(null)
   const [isSavingPrimaryRepository, setIsSavingPrimaryRepository] = useState(false)
   const [primaryRepositoryError, setPrimaryRepositoryError] = useState<string | null>(null)
+  const [skillUsage, setSkillUsage] = useState<SkillUsageSnapshot>(emptySkillUsage)
+  const [usageRefreshing, setUsageRefreshing] = useState(false)
+  const autoScannedUsageKeys = useRef(new Set<string>())
 
   const skillGroups = useMemo(
     () => sortSkillGroupsByActivity(buildSkillGroups(skillState.skills), libraryActivity),
@@ -171,8 +189,63 @@ export function SkillManagerPage() {
   }, [])
 
   useEffect(() => {
+    let isMounted = true
+
+    loadSkillUsageState()
+      .then((usage) => {
+        if (isMounted) {
+          setSkillUsage(usage)
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSkillUsage(emptySkillUsage)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
     setLibraryActivity(readLibraryActivity())
   }, [])
+
+  useEffect(() => {
+    if (!isTauriWindow || selectedPanel !== 'skill' || !selectedSkillGroup?.skills.length) {
+      return
+    }
+
+    const resolvedSkillDirectories = resolvedSkillDirectoriesForGroup(selectedSkillGroup)
+    const scanKey = [...resolvedSkillDirectories].sort().join('\n')
+    if (!scanKey || autoScannedUsageKeys.current.has(scanKey)) {
+      return
+    }
+
+    autoScannedUsageKeys.current.add(scanKey)
+    let isMounted = true
+
+    setUsageRefreshing(true)
+    refreshSkillUsage(resolvedSkillDirectories)
+      .then((next) => {
+        if (isMounted) {
+          setSkillUsage(next)
+        }
+      })
+      .catch((error) => {
+        console.warn('Failed to auto refresh skill usage', error)
+      })
+      .finally(() => {
+        if (isMounted) {
+          setUsageRefreshing(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [isTauriWindow, selectedPanel, selectedSkillGroup])
 
   useEffect(() => {
     if (!hasLoadedSkillState) {
@@ -346,6 +419,25 @@ export function SkillManagerPage() {
     await exportSkillZip(skill.skillDirectory, skill.slug || skill.name)
   }, [])
 
+  const handleRefreshSkillUsage = useCallback(async () => {
+    const group = selectedSkillGroup
+    if (!group?.skills.length) {
+      return
+    }
+
+    const resolvedSkillDirectories = resolvedSkillDirectoriesForGroup(group)
+
+    setUsageRefreshing(true)
+    try {
+      const next = await refreshSkillUsage(resolvedSkillDirectories)
+      setSkillUsage(next)
+    } catch (error) {
+      console.warn('Failed to refresh skill usage', error)
+    } finally {
+      setUsageRefreshing(false)
+    }
+  }, [selectedSkillGroup])
+
   const handleStartWindowDrag = useCallback(async (event: MouseEvent<HTMLDivElement>) => {
     if (!isTauriWindow || event.button !== 0) {
       return
@@ -442,6 +534,9 @@ export function SkillManagerPage() {
                 isPinned={libraryActivity.pinnedSkillIds.includes(selectedSkillGroup.id)}
                 selectedSkill={selectedSkill}
                 selectedSkillGroup={selectedSkillGroup}
+                skillUsage={skillUsage}
+                usageRefreshing={usageRefreshing}
+                onRefreshUsage={handleRefreshSkillUsage}
                 onCreateSymlink={handleCreateSkillSymlink}
                 onExportZip={handleExportSkillZip}
                 onMigrateToPrimary={handleMigrateSkillToPrimary}

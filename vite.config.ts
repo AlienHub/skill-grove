@@ -151,6 +151,17 @@ function sendJson(res: NodeJS.WritableStream & {
   res.end(JSON.stringify(payload))
 }
 
+function devSkillUsageState() {
+  return {
+    version: 1,
+    countsBySkillMdPath: {} as Record<string, number>,
+    countsBySkillMdPathBySource: {} as Record<string, Record<string, number>>,
+    lastScanAt: null as string | null,
+    scanNote:
+      'Web preview: usage counting runs only in the desktop app and currently scans Claude Code and Codex transcripts only.',
+  }
+}
+
 function readAppVersion() {
   try {
     const packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf8')) as { version?: unknown }
@@ -1161,6 +1172,33 @@ function installSkillManagerApi(server: ViteDevServer) {
       return
     }
 
+    if (url === `${SKILL_MANAGER_API_BASE}/skill-usage` && req.method === 'GET') {
+      sendJson(res, 200, devSkillUsageState())
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/skill-usage/refresh` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { resolvedSkillDirectories?: unknown }
+        const dirs = Array.isArray(body.resolvedSkillDirectories)
+          ? body.resolvedSkillDirectories.filter((x): x is string => typeof x === 'string')
+          : []
+        sendJson(res, 200, {
+          version: 1,
+          countsBySkillMdPath: {} as Record<string, number>,
+          countsBySkillMdPathBySource: {} as Record<string, Record<string, number>>,
+          lastScanAt: new Date().toISOString(),
+          scanNote:
+            dirs.length > 0
+              ? `Web preview: ${dirs.length} path(s) for this skill only; desktop app scans Claude Code and Codex transcripts.`
+              : 'Web preview: POST resolvedSkillDirectories[] for the current skill.',
+        })
+      } catch {
+        sendJson(res, 200, devSkillUsageState())
+      }
+      return
+    }
+
     if (url === `${SKILL_MANAGER_API_BASE}/directories` && req.method === 'POST') {
       try {
         const body = (await readRequestJson(req)) as { directories?: unknown }
@@ -1363,6 +1401,33 @@ function installSkillManagerPreviewApi(server: PreviewServer) {
 
     if (url === `${SKILL_MANAGER_API_BASE}/state` && req.method === 'GET') {
       sendJson(res, 200, loadSkillManagerState())
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/skill-usage` && req.method === 'GET') {
+      sendJson(res, 200, devSkillUsageState())
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/skill-usage/refresh` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { resolvedSkillDirectories?: unknown }
+        const dirs = Array.isArray(body.resolvedSkillDirectories)
+          ? body.resolvedSkillDirectories.filter((x): x is string => typeof x === 'string')
+          : []
+        sendJson(res, 200, {
+          version: 1,
+          countsBySkillMdPath: {} as Record<string, number>,
+          countsBySkillMdPathBySource: {} as Record<string, Record<string, number>>,
+          lastScanAt: new Date().toISOString(),
+          scanNote:
+            dirs.length > 0
+              ? `Web preview: ${dirs.length} path(s) for this skill only; desktop app scans Claude Code and Codex transcripts.`
+              : 'Web preview: POST resolvedSkillDirectories[] for the current skill.',
+        })
+      } catch {
+        sendJson(res, 200, devSkillUsageState())
+      }
       return
     }
 
