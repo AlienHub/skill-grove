@@ -1,16 +1,16 @@
-# Skill Grove v0.6.1
+# Skill Grove v0.6.2
 
-Released: 2026-05-10
+Released: 2026-05-20
 
 ## Highlights
 
-- **Primary skill repository:** Configure the canonical folder for skills in **Settings** (default `~/.agents/skills`). The path is stored in `~/.agents/skill-manager.json` as `primarySkillRepository` and exposed to the rest of the app.
-- **Migrate to primary:** From a skill’s **Sources** section (real sources only), move the folder into the primary repository at the same relative path, then replace the original location with a symlink. The primary root must be an enabled, scanned Agent directory.
-- **Settings UX:** The primary path **Save** control appears only when the field differs from the saved value; **Enter** in the field also saves.
-- **Home:** The library home header uses the in-app Ripple loader instead of a static logo.
+- **Skill load statistics:** Add per-agent load counts for selected skills, with Claude Code `invoked_skills` support and direct `SKILL.md` read detection for Codex, OpenClaw, and Craft Agents.
+- **Craft Agents support:** Detect Craft Agents workspaces from `~/.craft-agent/config.json`, add their `skills` folders as built-in sources, and scan workspace `sessions/*/session.jsonl` for real skill loads.
+- **Usage notes popover:** Show scan scope and data-source rules in a hover card that follows the active light or dark theme.
+- **Documentation refresh:** Reposition README content around Skill Governance and keep the release bundle examples current.
 
 ## macOS
 
 - This release publishes a macOS DMG installer only.
 - Download the `.dmg` asset below and drag Skill Grove into Applications.
-- Users on v0.6.0 can use the in-app updater to install this release.
+- Users on v0.6.1 can use the in-app updater to install this release.
