@@ -1,9 +1,21 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="light">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Skill Grove</title>
+  <script>
+    (function () {
+      var themeKey = 'skill-grove.theme';
+      var legacyThemeKey = 'skill-studio.theme';
+      var preference = localStorage.getItem(themeKey) || localStorage.getItem(legacyThemeKey) || 'system';
+      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var resolved = preference === 'dark' || (preference === 'system' && prefersDark) ? 'dark' : 'light';
+      var root = document.documentElement;
+      root.classList.toggle('dark', resolved === 'dark');
+      root.dataset.theme = resolved;
+    })();
+  </script>
   <link rel="icon" type="image/svg+xml" href="/app-icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

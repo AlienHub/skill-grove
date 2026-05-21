@@ -13,8 +13,13 @@ export type ThemePreference = 'system' | 'light' | 'dark'
 export type LanguagePreference = 'system' | Language
 
 const THEME_STORAGE_KEY = 'skill-grove.theme'
+const LEGACY_THEME_STORAGE_KEY = 'skill-studio.theme'
 const LANGUAGE_STORAGE_KEY = 'skill-grove.language'
 const DEFAULT_OPEN_TARGET_STORAGE_KEY = 'skill-grove.defaultOpenTarget'
+
+function isTauriRuntime() {
+  return '__TAURI_INTERNALS__' in window
+}
 
 type PreferencesContextValue = {
   defaultOpenTargetId: string | null
@@ -31,8 +36,24 @@ type PreferencesContextValue = {
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 
 function readThemePreference(): ThemePreference {
-  const value = localStorage.getItem(THEME_STORAGE_KEY)
+  let value = localStorage.getItem(THEME_STORAGE_KEY)
+  if (!value) {
+    value = localStorage.getItem(LEGACY_THEME_STORAGE_KEY)
+    if (value) {
+      localStorage.setItem(THEME_STORAGE_KEY, value)
+    }
+  }
+
   return value === 'light' || value === 'dark' || value === 'system' ? value : 'system'
+}
+
+function resolveTheme(preference: ThemePreference, systemPrefersDark: boolean): 'light' | 'dark' {
+  return preference === 'system' ? (systemPrefersDark ? 'dark' : 'light') : preference
+}
+
+function applyResolvedTheme(resolvedTheme: 'light' | 'dark') {
+  document.documentElement.classList.toggle('dark', resolvedTheme === 'dark')
+  document.documentElement.dataset.theme = resolvedTheme
 }
 
 function readLanguagePreference(): LanguagePreference {
@@ -61,10 +82,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [defaultOpenTargetId, setDefaultOpenTargetIdState] = useState<string | null>(readDefaultOpenTargetId)
   const [systemPrefersDark, setSystemPrefersDark] = useState(prefersDarkMode)
   const [systemLanguage] = useState<Language>(getSystemLanguage)
-  const resolvedTheme = themePreference === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themePreference
+  const resolvedTheme = resolveTheme(themePreference, systemPrefersDark)
   const language = languagePreference === 'system' ? systemLanguage : languagePreference
 
   useEffect(() => {
+    if (isTauriRuntime()) {
+      return
+    }
+
     const mediaQuery = window.matchMedia?.('(prefers-color-scheme: dark)')
     if (!mediaQuery) {
       return
@@ -77,24 +102,55 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', resolvedTheme === 'dark')
-    document.documentElement.dataset.theme = resolvedTheme
+    if (!isTauriRuntime()) {
+      return
+    }
+
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    const appWindow = getCurrentWindow()
+
+    void (async () => {
+      try {
+        const theme = await appWindow.theme()
+        if (!disposed && theme) {
+          setSystemPrefersDark(theme === 'dark')
+        }
+
+        unlisten = await appWindow.onThemeChanged(({ payload: theme }) => {
+          setSystemPrefersDark(theme === 'dark')
+        })
+      } catch (error) {
+        console.warn('Failed to subscribe to native theme changes', error)
+      }
+    })()
+
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [])
+
+  useEffect(() => {
+    applyResolvedTheme(resolvedTheme)
   }, [resolvedTheme])
 
   useEffect(() => {
-    if (!('__TAURI_INTERNALS__' in window)) {
+    if (!isTauriRuntime()) {
       return
     }
 
     const appWindow = getCurrentWindow()
+    const nativeTheme = themePreference === 'system' ? null : themePreference
     const { backgroundColor } = getComputedStyle(document.documentElement)
-    void appWindow.setTheme(resolvedTheme).catch((error) => {
+
+    void appWindow.setTheme(nativeTheme).catch((error) => {
       console.warn('Failed to sync native window theme', error)
     })
     void appWindow.setBackgroundColor(backgroundColor as Color).catch((error) => {
       console.warn('Failed to sync native window background', error)
     })
-  }, [resolvedTheme])
+  }, [resolvedTheme, themePreference])
 
   useEffect(() => {
     document.documentElement.lang = language
