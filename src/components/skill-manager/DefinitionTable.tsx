@@ -2,8 +2,8 @@ import { type DefinitionRow } from '../../skill-manager/types'
 
 export function DefinitionTable({ rows }: { rows: DefinitionRow[] }) {
   return (
-    <div className="overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface)]">
-      <dl className="divide-y divide-border/50">
+    <div className="overflow-hidden rounded-[8px] border border-[color-mix(in_srgb,var(--foreground)_9%,transparent)] bg-[var(--surface)] shadow-minimal-flat">
+      <dl className="divide-y divide-[color-mix(in_srgb,var(--foreground)_7%,transparent)]">
         {rows.map((row) => (
           <div
             className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 px-3 py-2 sm:grid-cols-[96px_minmax(0,1fr)]"

@@ -86,15 +86,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const language = languagePreference === 'system' ? systemLanguage : languagePreference
 
   useEffect(() => {
-    if (isTauriRuntime()) {
-      return
-    }
-
     const mediaQuery = window.matchMedia?.('(prefers-color-scheme: dark)')
     if (!mediaQuery) {
       return
     }
 
+    setSystemPrefersDark(mediaQuery.matches)
     const handleChange = () => setSystemPrefersDark(mediaQuery.matches)
     mediaQuery.addEventListener('change', handleChange)
 
@@ -144,9 +141,19 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     const nativeTheme = themePreference === 'system' ? null : themePreference
     const { backgroundColor } = getComputedStyle(document.documentElement)
 
-    void appWindow.setTheme(nativeTheme).catch((error) => {
-      console.warn('Failed to sync native window theme', error)
-    })
+    void (async () => {
+      try {
+        await appWindow.setTheme(nativeTheme)
+        if (themePreference === 'system') {
+          const theme = await appWindow.theme()
+          if (theme) {
+            setSystemPrefersDark(theme === 'dark')
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to sync native window theme', error)
+      }
+    })()
     void appWindow.setBackgroundColor(backgroundColor as Color).catch((error) => {
       console.warn('Failed to sync native window background', error)
     })

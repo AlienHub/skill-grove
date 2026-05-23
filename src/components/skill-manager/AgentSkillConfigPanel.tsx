@@ -6,6 +6,7 @@ export function AgentSkillConfigPanel({
   builtInDirectories,
   configuredDirectories,
   feedbackMessage,
+  hasTitlebarInset,
   inputDisabled,
   sourceIcons,
   skillCount,
@@ -19,6 +20,7 @@ export function AgentSkillConfigPanel({
   builtInDirectories: BuiltInDirectoryState[]
   configuredDirectories: string[]
   feedbackMessage: string | null
+  hasTitlebarInset: boolean
   inputDisabled: boolean
   sourceIcons: Record<string, SourceIcon>
   skillCount: number
@@ -32,7 +34,11 @@ export function AgentSkillConfigPanel({
   const { t } = useAppPreferences()
 
   return (
-    <section className="overflow-y-auto rounded-[8px] bg-[color-mix(in_srgb,var(--foreground)_1.5%,var(--background))] p-5 shadow-minimal">
+    <section
+      className={`m-2 mb-2 min-h-0 overflow-y-auto rounded-[8px] bg-[var(--surface)] p-5 shadow-minimal ${
+        hasTitlebarInset ? 'mt-10' : 'mt-2'
+      }`}
+    >
       <div className="mb-6">
         <p className="text-[12px] text-foreground/52">{t('directories.eyebrow')}</p>
       </div>

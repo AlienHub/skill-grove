@@ -6,16 +6,20 @@ export function SettingsEntry({
   onClick,
 }: {
   badge?: string
-  icon?: 'agent-skill' | 'home' | 'settings'
+  icon?: 'agent-skill' | 'apps' | 'home' | 'settings' | 'skill'
   isSelected: boolean
   label: string
   onClick: () => void
 }) {
   const iconPath = icon === 'agent-skill'
     ? 'M3.75 6.75a2 2 0 0 1 2-2h3.15c.44 0 .86.15 1.19.42l1.14.91c.33.27.75.42 1.18.42h5.84a2 2 0 0 1 2 2v1.25M4.5 9.75h15a1.5 1.5 0 0 1 1.47 1.8l-1.35 6.75a2 2 0 0 1-1.96 1.6H6.34a2 2 0 0 1-1.96-1.6L3.03 11.55a1.5 1.5 0 0 1 1.47-1.8Z'
-    : icon === 'home'
-      ? 'M3.75 10.75 12 4l8.25 6.75M5.75 9.75v8.5a1.5 1.5 0 0 0 1.5 1.5h9.5a1.5 1.5 0 0 0 1.5-1.5v-8.5'
-      : 'M10.325 4.317a1.724 1.724 0 0 1 3.35 0 1.724 1.724 0 0 0 2.573 1.066 1.724 1.724 0 0 1 2.898 1.93 1.724 1.724 0 0 0 .75 2.692 1.724 1.724 0 0 1 0 2.99 1.724 1.724 0 0 0-.75 2.692 1.724 1.724 0 0 1-2.898 1.93 1.724 1.724 0 0 0-2.573 1.066 1.724 1.724 0 0 1-3.35 0 1.724 1.724 0 0 0-2.573-1.066 1.724 1.724 0 0 1-2.898-1.93 1.724 1.724 0 0 0-.75-2.692 1.724 1.724 0 0 1 0-2.99 1.724 1.724 0 0 0 .75-2.692 1.724 1.724 0 0 1 2.898-1.93 1.724 1.724 0 0 0 2.573-1.066Z'
+    : icon === 'apps'
+      ? 'M5.25 5.25h5.5v5.5h-5.5v-5.5ZM13.25 5.25h5.5v5.5h-5.5v-5.5ZM5.25 13.25h5.5v5.5h-5.5v-5.5ZM13.25 13.25h5.5v5.5h-5.5v-5.5Z'
+      : icon === 'home'
+        ? 'M3.75 10.75 12 4l8.25 6.75M5.75 9.75v8.5a1.5 1.5 0 0 0 1.5 1.5h9.5a1.5 1.5 0 0 0 1.5-1.5v-8.5'
+        : icon === 'skill'
+          ? 'M7.75 4.75h8.5a2 2 0 0 1 2 2v11.5l-3.25-2-3.25 2-3.25-2-3.25 2V6.75a2 2 0 0 1 2-2ZM8.75 8.5h6.5M8.75 11.5h4.5'
+          : 'M10.325 4.317a1.724 1.724 0 0 1 3.35 0 1.724 1.724 0 0 0 2.573 1.066 1.724 1.724 0 0 1 2.898 1.93 1.724 1.724 0 0 0 .75 2.692 1.724 1.724 0 0 1 0 2.99 1.724 1.724 0 0 0-.75 2.692 1.724 1.724 0 0 1-2.898 1.93 1.724 1.724 0 0 0-2.573 1.066 1.724 1.724 0 0 1-3.35 0 1.724 1.724 0 0 0-2.573-1.066 1.724 1.724 0 0 1-2.898-1.93 1.724 1.724 0 0 0-.75-2.692 1.724 1.724 0 0 1 0-2.99 1.724 1.724 0 0 0 .75-2.692 1.724 1.724 0 0 1 2.898-1.93 1.724 1.724 0 0 0 2.573-1.066Z'
 
   return (
     <button
@@ -24,7 +28,7 @@ export function SettingsEntry({
       type="button"
     >
       <div
-        className={`rounded-[8px] px-4 py-3 transition-colors ${
+        className={`rounded-[8px] px-4 py-2.5 transition-colors ${
           isSelected
             ? 'bg-[color-mix(in_srgb,var(--foreground)_3%,var(--background))]'
             : 'bg-transparent hover:bg-[color-mix(in_srgb,var(--foreground)_1.5%,var(--background))]'
@@ -63,7 +67,7 @@ export function SettingsEntry({
               />
             ) : null}
           </svg>
-          <h2 className="min-w-0 flex-1 truncate text-[14px] font-normal text-foreground">{label}</h2>
+          <h2 className="min-w-0 flex-1 truncate text-[13px] font-normal text-foreground">{label}</h2>
           {badge ? (
             <span className="shrink-0 rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-medium text-foreground/56">
               {badge}

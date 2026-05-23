@@ -120,7 +120,7 @@ export function LibraryHomePanel({
         : 'library.statusClean'
 
   return (
-    <section className="scrollbar-hide h-full overflow-y-auto rounded-[8px] bg-[color-mix(in_srgb,var(--foreground)_1.5%,var(--background))] shadow-minimal">
+    <section className="scrollbar-hide h-full overflow-y-auto bg-[var(--background-elevated)]">
       <div className="mx-auto flex min-h-full max-w-[900px] flex-col px-7 py-7 sm:px-10 sm:py-9">
         <header className="flex items-center justify-between gap-6 text-[12px] text-foreground/42">
           <span className="font-medium text-foreground/54">{t('home.eyebrow')}</span>

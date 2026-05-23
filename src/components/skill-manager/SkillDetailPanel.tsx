@@ -50,6 +50,7 @@ function SkillInsightNotes({
 
 export function SkillDetailPanel({
   configuredDirectories,
+  hasTitlebarInset,
   isPinned,
   openDirectoryTargets,
   primarySkillRepository,
@@ -68,6 +69,7 @@ export function SkillDetailPanel({
   onTogglePinned,
 }: {
   configuredDirectories: string[]
+  hasTitlebarInset: boolean
   isPinned: boolean
   openDirectoryTargets: DirectoryOpenTarget[]
   primarySkillRepository: string
@@ -112,41 +114,47 @@ export function SkillDetailPanel({
   })
 
   return (
-    <section className="overflow-y-auto rounded-[8px] bg-[color-mix(in_srgb,var(--foreground)_1.5%,var(--background))] p-5 shadow-minimal">
-      <div className="sticky top-[-1.25rem] z-50 -mx-5 -mt-5 mb-4 border-b border-border/45 bg-[oklch(from_var(--background-elevated)_l_c_h_/_0.84)] px-5 py-3 backdrop-blur-md">
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h2 className="truncate text-[14px] font-semibold text-foreground">{selectedSkillGroup.name}</h2>
-            <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                selectedSkillGroup.variantCount > 1
-                  ? 'bg-[color-mix(in_srgb,var(--accent)_10%,var(--surface))] text-accent'
-                  : 'bg-[var(--surface-muted)] text-foreground/52'
+    <section
+      className={`m-2 mb-2 min-h-0 overflow-y-auto rounded-[8px] bg-[var(--surface)] p-5 shadow-minimal ${
+        hasTitlebarInset ? 'mt-10' : 'mt-2'
+      }`}
+    >
+      <div className="mb-6 overflow-hidden rounded-[8px] bg-[var(--surface)] shadow-minimal-flat">
+        <div className="border-b border-border/45 px-5 py-3">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h2 className="truncate text-[14px] font-semibold text-foreground">{selectedSkillGroup.name}</h2>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  selectedSkillGroup.variantCount > 1
+                    ? 'bg-[color-mix(in_srgb,var(--accent)_10%,var(--surface))] text-accent'
+                    : 'bg-[var(--surface-muted)] text-foreground/52'
+                }`}
+              >
+                {detailSummary}
+              </span>
+            </div>
+            <button
+              aria-pressed={isPinned}
+              className={`flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border text-[15px] leading-none transition-colors ${
+                isPinned
+                  ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-accent hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]'
+                  : 'border-transparent bg-transparent text-foreground/34 hover:bg-foreground/5 hover:text-foreground/68'
               }`}
+              onClick={onTogglePinned}
+              title={isPinned ? t('activity.unpin') : t('activity.pin')}
+              type="button"
             >
-              {detailSummary}
-            </span>
+              {isPinned ? '★' : '☆'}
+            </button>
           </div>
-          <button
-            aria-pressed={isPinned}
-            className={`flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border text-[15px] leading-none transition-colors ${
-              isPinned
-                ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-accent hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]'
-                : 'border-transparent bg-transparent text-foreground/34 hover:bg-foreground/5 hover:text-foreground/68'
-            }`}
-            onClick={onTogglePinned}
-            title={isPinned ? t('activity.unpin') : t('activity.pin')}
-            type="button"
-          >
-            {isPinned ? '★' : '☆'}
-          </button>
         </div>
-      </div>
-      <div className="mb-8 rounded-[8px]">
-        <p className="line-clamp-2 text-[14px] leading-7 text-foreground/56">
-          {selectedSkillGroup.description || selectedSkill.description || t('detail.noDescription')}
-        </p>
-        <SkillInsightNotes recentChanges={recentChanges} />
+        <div className="px-5 py-4">
+          <p className="line-clamp-2 text-[14px] leading-7 text-foreground/56">
+            {selectedSkillGroup.description || selectedSkill.description || t('detail.noDescription')}
+          </p>
+          <SkillInsightNotes recentChanges={recentChanges} />
+        </div>
       </div>
 
       <div className="space-y-8">
@@ -211,17 +219,20 @@ export function SkillDetailPanel({
               </button>
             </div>
           </div>
-          <div className="overflow-hidden rounded-[8px] border border-border/50">
+          <div className="overflow-hidden rounded-[8px] border border-[color-mix(in_srgb,var(--foreground)_9%,transparent)] bg-[var(--surface)] shadow-minimal-flat">
             <table className="w-full border-collapse text-left text-[12px]">
               <thead>
-                <tr className="border-b border-border/45 bg-[var(--surface-muted)] text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground/45">
+                <tr className="border-b border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] bg-[var(--surface-muted)] text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground/45">
                   <th className="px-3 py-2 font-semibold">{t('detail.usageAgent')}</th>
                   <th className="px-3 py-2 text-right font-semibold">{t('detail.usageCount')}</th>
                 </tr>
               </thead>
               <tbody>
                 {usageRows.map((usageRow) => (
-                  <tr className="border-b border-border/35 last:border-b-0" key={usageRow.agentId}>
+                  <tr
+                    className="border-b border-[color-mix(in_srgb,var(--foreground)_7%,transparent)] last:border-b-0"
+                    key={usageRow.agentId}
+                  >
                     <td className="px-3 py-2 text-foreground/78">{usageRow.agentName}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-foreground/88">{usageRow.count}</td>
                   </tr>

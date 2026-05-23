@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } fr
 import { appVersion, initialSkillManagerState } from 'virtual:skill-manager-state'
 import { AgentSkillConfigPanel } from '../components/skill-manager/AgentSkillConfigPanel'
 import { AppSettingsPanel } from '../components/skill-manager/AppSettingsPanel'
+import { ApplicationDetailPanel, ApplicationSidebar } from '../components/skill-manager/ApplicationView'
 import { LibraryHomePanel } from '../components/skill-manager/LibraryHomePanel'
+import { PrimaryNavigationRail } from '../components/skill-manager/PrimaryNavigationRail'
 import { SkillDetailPanel } from '../components/skill-manager/SkillDetailPanel'
 import { SkillSidebar } from '../components/skill-manager/SkillSidebar'
 import {
@@ -50,7 +52,7 @@ import {
   type UpdateInstallStatus,
 } from '../skill-manager/types'
 
-type SelectedPanel = 'home' | 'skill' | 'agent-skill-config' | 'settings'
+type SelectedPanel = 'home' | 'skill' | 'app' | 'agent-skill-config' | 'settings'
 
 const emptySkillUsage: SkillUsageSnapshot = {
   version: 1,
@@ -113,6 +115,8 @@ export function SkillManagerPage() {
     initialSkillManagerState.skills[0]?.id ?? null
   )
   const [selectedPanel, setSelectedPanel] = useState<SelectedPanel>('home')
+  const [selectedAppId, setSelectedAppId] = useState<string | null>(null)
+  const [isPrimaryNavCollapsed, setIsPrimaryNavCollapsed] = useState(false)
   const [isSavingDirectories, setIsSavingDirectories] = useState(false)
   const [directoryFeedbackMessage, setDirectoryFeedbackMessage] = useState<string | null>(null)
   const [skillSearchQuery, setSkillSearchQuery] = useState('')
@@ -138,6 +142,21 @@ export function SkillManagerPage() {
     () => buildAgentCatalogProfiles(skillState.skills),
     [skillState.skills]
   )
+  const selectedAppProfile = useMemo(
+    () => catalogProfiles.find((profile) => profile.agentId === selectedAppId) ?? catalogProfiles[0] ?? null,
+    [catalogProfiles, selectedAppId]
+  )
+  const skillGroupsBySkillId = useMemo(() => {
+    const groupsBySkillId = new Map<string, SkillGroup>()
+
+    for (const group of skillGroups) {
+      for (const skill of group.skills) {
+        groupsBySkillId.set(skill.id, group)
+      }
+    }
+
+    return groupsBySkillId
+  }, [skillGroups])
   const multiSourceGroupCount = useMemo(
     () => skillGroups.filter((group) => group.sourceCount > 1).length,
     [skillGroups]
@@ -147,6 +166,8 @@ export function SkillManagerPage() {
     [activeLibraryFilter, libraryVisitState, skillGroups, skillSearchQuery]
   )
   const hasPendingUpdate = Boolean(updateCheckState?.hasUpdate)
+  const hasPrimaryNav = selectedPanel !== 'home'
+  const hasContextSidebar = selectedPanel === 'skill' || selectedPanel === 'app'
 
   const selectedSkillGroup = useMemo(
     () =>
@@ -322,6 +343,16 @@ export function SkillManagerPage() {
     }
   }, [selectedPanel, selectedSkillId, skillGroups])
 
+  useEffect(() => {
+    if (selectedPanel !== 'app') {
+      return
+    }
+
+    if (!selectedAppId || !catalogProfiles.some((profile) => profile.agentId === selectedAppId)) {
+      setSelectedAppId(catalogProfiles[0]?.agentId ?? null)
+    }
+  }, [catalogProfiles, selectedAppId, selectedPanel])
+
   const updateDirectories = async (directories: string[]) => {
     setIsSavingDirectories(true)
     setDirectoryFeedbackMessage(null)
@@ -385,6 +416,16 @@ export function SkillManagerPage() {
       writeLibraryActivity(nextActivity)
       return nextActivity
     })
+  }
+
+  const handleSelectSkillView = () => {
+    setSelectedPanel('skill')
+    setSelectedSkillId((currentSkillId) => currentSkillId ?? skillGroups[0]?.primarySkill.id ?? null)
+  }
+
+  const handleSelectAppView = () => {
+    setSelectedPanel('app')
+    setSelectedAppId((currentAppId) => currentAppId ?? catalogProfiles[0]?.agentId ?? null)
   }
 
   const handleTogglePinnedSkill = (group: SkillGroup) => {
@@ -454,30 +495,46 @@ export function SkillManagerPage() {
       {isTauriWindow ? (
         <div
           aria-hidden="true"
-          className="titlebar-drag-region fixed inset-x-0 top-0 z-titlebar h-12 bg-transparent"
+          className="titlebar-drag-region fixed inset-x-0 top-0 z-titlebar h-8 bg-transparent"
           data-tauri-drag-region
           onMouseDown={handleStartWindowDrag}
         />
       ) : null}
 
-      <main className={`mx-auto h-screen max-w-[1440px] px-4 pb-5 sm:px-6 ${isTauriWindow ? 'pt-12' : 'py-5'}`}>
-        {selectedPanel === 'home' ? (
-          <div className="h-full">
-            <LibraryHomePanel
-              catalogProfiles={catalogProfiles}
-              skillGroups={skillGroups}
-              visitState={libraryVisitState}
-              onOpenAgentSkillConfig={() => setSelectedPanel('agent-skill-config')}
-              onOpenSettings={() => setSelectedPanel('settings')}
-              onSelectSkillGroup={handleSelectSkillGroup}
+      <main className="mx-auto h-screen max-w-none bg-[var(--background-elevated)]">
+        <div
+          className={`grid h-full gap-0 ${
+            !hasPrimaryNav
+              ? 'grid-cols-[minmax(0,1fr)]'
+              : hasContextSidebar && isPrimaryNavCollapsed
+              ? 'grid-cols-[52px_minmax(220px,260px)_minmax(0,1fr)]'
+              : hasContextSidebar
+                ? 'grid-cols-[180px_minmax(220px,260px)_minmax(0,1fr)]'
+                : isPrimaryNavCollapsed
+                  ? 'grid-cols-[52px_minmax(0,1fr)]'
+                  : 'grid-cols-[180px_minmax(0,1fr)]'
+          }`}
+        >
+          {hasPrimaryNav ? (
+            <PrimaryNavigationRail
+              hasPendingUpdate={hasPendingUpdate}
+              hasTitlebarInset={isTauriWindow}
+              isCollapsed={isPrimaryNavCollapsed}
+              selectedPanel={selectedPanel}
+              onSelectAgentSkillConfig={() => setSelectedPanel('agent-skill-config')}
+              onSelectAppView={handleSelectAppView}
+              onSelectHome={() => setSelectedPanel('home')}
+              onSelectSettings={() => setSelectedPanel('settings')}
+              onSelectSkillView={handleSelectSkillView}
+              onToggleCollapsed={() => setIsPrimaryNavCollapsed((isCollapsed) => !isCollapsed)}
             />
-          </div>
-        ) : (
-          <div className="grid h-full gap-2 lg:grid-cols-[240px_minmax(0,1fr)]">
+          ) : null}
+
+          {selectedPanel === 'skill' ? (
             <SkillSidebar
               activeFilter={activeLibraryFilter}
               filteredSkillGroups={filteredSkillGroups}
-              hasPendingUpdate={hasPendingUpdate}
+              hasTitlebarInset={isTauriWindow}
               multiSourceGroupCount={multiSourceGroupCount}
               selectedGroupId={selectedSkillGroup?.id ?? null}
               selectedPanel={selectedPanel}
@@ -487,67 +544,93 @@ export function SkillManagerPage() {
               pinnedSkillIds={libraryActivity.pinnedSkillIds}
               onFilterChange={setActiveLibraryFilter}
               onSearchChange={setSkillSearchQuery}
-              onSelectHome={() => setSelectedPanel('home')}
-              onSelectAgentSkillConfig={() => setSelectedPanel('agent-skill-config')}
-              onSelectSettings={() => setSelectedPanel('settings')}
               onSelectSkillGroup={handleSelectSkillGroup}
             />
+          ) : selectedPanel === 'app' ? (
+            <ApplicationSidebar
+              hasTitlebarInset={isTauriWindow}
+              profiles={catalogProfiles}
+              selectedProfileId={selectedAppProfile?.agentId ?? null}
+              onSelectProfile={(profile) => {
+                setSelectedPanel('app')
+                setSelectedAppId(profile.agentId)
+              }}
+            />
+          ) : null}
 
-            {selectedPanel === 'agent-skill-config' ? (
-              <AgentSkillConfigPanel
-                builtInDirectories={skillState.builtInDirectories}
-                configuredDirectories={skillState.configuredDirectories}
-                feedbackMessage={directoryFeedbackMessage}
-                inputDisabled={isSavingDirectories}
-                sourceIcons={skillState.sourceIcons}
-                skillCount={skillGroups.length}
-                userConfiguredDirectories={skillState.userConfiguredDirectories}
-                onRefresh={handleRefresh}
-                onRemoveDirectory={handleRemoveDirectory}
-                onSaveSourceIcon={handleSaveSourceIcon}
-                onSetFeedbackMessage={setDirectoryFeedbackMessage}
-                onSelectDirectory={handleChooseDirectory}
-              />
-            ) : selectedPanel === 'settings' ? (
-              <AppSettingsPanel
-                currentVersion={appVersion}
-                isSavingPrimaryRepository={isSavingPrimaryRepository}
-                openDirectoryTargets={skillState.openDirectoryTargets}
-                primaryRepositoryError={primaryRepositoryError}
-                primarySkillRepository={skillState.primarySkillRepository}
-                updateCheck={updateCheckState}
-                updateCheckError={updateCheckError}
-                updateCheckStatus={updateCheckStatus}
-                updateInstallError={updateInstallError}
-                updateInstallStatus={updateInstallStatus}
-                onCheckForUpdates={handleCheckForUpdates}
-                onInstallUpdate={handleInstallUpdate}
-                onOpenExternalUrl={handleOpenExternalUrl}
-                onSavePrimaryRepository={handleSavePrimaryRepository}
-              />
-            ) : selectedSkill && selectedSkillGroup ? (
-              <SkillDetailPanel
-                configuredDirectories={skillState.configuredDirectories}
-                openDirectoryTargets={skillState.openDirectoryTargets}
-                primarySkillRepository={skillState.primarySkillRepository}
-                recentChanges={libraryVisitState.changesBySkillId[selectedSkillGroup.id] ?? []}
-                isPinned={libraryActivity.pinnedSkillIds.includes(selectedSkillGroup.id)}
-                selectedSkill={selectedSkill}
-                selectedSkillGroup={selectedSkillGroup}
-                skillUsage={skillUsage}
-                usageRefreshing={usageRefreshing}
-                onRefreshUsage={handleRefreshSkillUsage}
-                onCreateSymlink={handleCreateSkillSymlink}
-                onExportZip={handleExportSkillZip}
-                onMigrateToPrimary={handleMigrateSkillToPrimary}
-                onRemoveSource={handleRemoveSkillSource}
-                onSelectSkill={setSelectedSkillId}
-                onConvertToSymlink={handleConvertSkillSourceToSymlink}
-                onTogglePinned={() => handleTogglePinnedSkill(selectedSkillGroup)}
-              />
-            ) : null}
-          </div>
-        )}
+          {selectedPanel === 'home' ? (
+            <LibraryHomePanel
+              catalogProfiles={catalogProfiles}
+              skillGroups={skillGroups}
+              visitState={libraryVisitState}
+              onOpenAgentSkillConfig={() => setSelectedPanel('agent-skill-config')}
+              onOpenSettings={() => setSelectedPanel('settings')}
+              onSelectSkillGroup={handleSelectSkillGroup}
+            />
+          ) : selectedPanel === 'app' ? (
+            <ApplicationDetailPanel
+              hasTitlebarInset={isTauriWindow}
+              profile={selectedAppProfile}
+              skillGroupsBySkillId={skillGroupsBySkillId}
+              onSelectSkillGroup={handleSelectSkillGroup}
+            />
+          ) : selectedPanel === 'agent-skill-config' ? (
+            <AgentSkillConfigPanel
+              builtInDirectories={skillState.builtInDirectories}
+              configuredDirectories={skillState.configuredDirectories}
+              feedbackMessage={directoryFeedbackMessage}
+              hasTitlebarInset={isTauriWindow}
+              inputDisabled={isSavingDirectories}
+              sourceIcons={skillState.sourceIcons}
+              skillCount={skillGroups.length}
+              userConfiguredDirectories={skillState.userConfiguredDirectories}
+              onRefresh={handleRefresh}
+              onRemoveDirectory={handleRemoveDirectory}
+              onSaveSourceIcon={handleSaveSourceIcon}
+              onSetFeedbackMessage={setDirectoryFeedbackMessage}
+              onSelectDirectory={handleChooseDirectory}
+            />
+          ) : selectedPanel === 'settings' ? (
+            <AppSettingsPanel
+              currentVersion={appVersion}
+              hasTitlebarInset={isTauriWindow}
+              isSavingPrimaryRepository={isSavingPrimaryRepository}
+              openDirectoryTargets={skillState.openDirectoryTargets}
+              primaryRepositoryError={primaryRepositoryError}
+              primarySkillRepository={skillState.primarySkillRepository}
+              updateCheck={updateCheckState}
+              updateCheckError={updateCheckError}
+              updateCheckStatus={updateCheckStatus}
+              updateInstallError={updateInstallError}
+              updateInstallStatus={updateInstallStatus}
+              onCheckForUpdates={handleCheckForUpdates}
+              onInstallUpdate={handleInstallUpdate}
+              onOpenExternalUrl={handleOpenExternalUrl}
+              onSavePrimaryRepository={handleSavePrimaryRepository}
+            />
+          ) : selectedSkill && selectedSkillGroup ? (
+            <SkillDetailPanel
+              configuredDirectories={skillState.configuredDirectories}
+              hasTitlebarInset={isTauriWindow}
+              openDirectoryTargets={skillState.openDirectoryTargets}
+              primarySkillRepository={skillState.primarySkillRepository}
+              recentChanges={libraryVisitState.changesBySkillId[selectedSkillGroup.id] ?? []}
+              isPinned={libraryActivity.pinnedSkillIds.includes(selectedSkillGroup.id)}
+              selectedSkill={selectedSkill}
+              selectedSkillGroup={selectedSkillGroup}
+              skillUsage={skillUsage}
+              usageRefreshing={usageRefreshing}
+              onRefreshUsage={handleRefreshSkillUsage}
+              onCreateSymlink={handleCreateSkillSymlink}
+              onExportZip={handleExportSkillZip}
+              onMigrateToPrimary={handleMigrateSkillToPrimary}
+              onRemoveSource={handleRemoveSkillSource}
+              onSelectSkill={setSelectedSkillId}
+              onConvertToSymlink={handleConvertSkillSourceToSymlink}
+              onTogglePinned={() => handleTogglePinnedSkill(selectedSkillGroup)}
+            />
+          ) : null}
+        </div>
       </main>
     </div>
   )

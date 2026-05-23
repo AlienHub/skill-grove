@@ -3,41 +3,34 @@ import { useAppPreferences } from '../../skill-manager/preferences'
 import { type LibraryFilter, type LibraryVisitState, type SkillGroup } from '../../skill-manager/types'
 import { groupMatchesLibraryFilter } from '../../skill-manager/libraryInsights'
 import { filterLabelKey, filterShortLabelKey, libraryFilters } from '../../skill-manager/libraryPresentation'
-import { SettingsEntry } from './SettingsEntry'
 
 export function SkillSidebar({
   activeFilter,
   filteredSkillGroups,
+  hasTitlebarInset,
   skillGroups,
   multiSourceGroupCount,
-  hasPendingUpdate,
   visitState,
   selectedGroupId,
   selectedPanel,
   skillSearchQuery,
   onFilterChange,
   onSearchChange,
-  onSelectHome,
-  onSelectAgentSkillConfig,
-  onSelectSettings,
   onSelectSkillGroup,
   pinnedSkillIds,
 }: {
   activeFilter: LibraryFilter
   filteredSkillGroups: SkillGroup[]
+  hasTitlebarInset: boolean
   skillGroups: SkillGroup[]
   multiSourceGroupCount: number
-  hasPendingUpdate: boolean
   visitState: LibraryVisitState
   selectedGroupId: string | null
-  selectedPanel: 'home' | 'skill' | 'agent-skill-config' | 'settings'
+  selectedPanel: 'home' | 'skill' | 'app' | 'agent-skill-config' | 'settings'
   skillSearchQuery: string
   pinnedSkillIds: string[]
   onFilterChange: (filter: LibraryFilter) => void
   onSearchChange: (query: string) => void
-  onSelectHome: () => void
-  onSelectAgentSkillConfig: () => void
-  onSelectSettings: () => void
   onSelectSkillGroup: (group: SkillGroup) => void
 }) {
   const { t } = useAppPreferences()
@@ -63,8 +56,12 @@ export function SkillSidebar({
   }
 
   return (
-    <aside className="flex h-full flex-col overflow-hidden rounded-[8px] bg-[var(--surface)] shadow-minimal">
-      <div className="border-b border-border/50 px-4 py-4">
+    <aside
+      className={`m-2 mb-2 flex min-h-0 flex-col overflow-hidden rounded-[8px] bg-[var(--surface)] shadow-minimal ${
+        hasTitlebarInset ? 'mt-10' : 'mt-2'
+      }`}
+    >
+      <div className="border-b border-border/50 px-4 pb-4 pt-4">
         <div className="flex items-end justify-between gap-3">
           <h1 className="text-[14px] font-semibold text-foreground">{t('app.library')}</h1>
           <span className="text-[12px] text-foreground/45">
@@ -218,28 +215,6 @@ export function SkillSidebar({
         )}
       </div>
 
-      <div className="p-3 pt-2">
-        <div className="space-y-1">
-          <SettingsEntry
-            icon="home"
-            isSelected={selectedPanel === 'home'}
-            label={t('app.home')}
-            onClick={onSelectHome}
-          />
-          <SettingsEntry
-            icon="agent-skill"
-            isSelected={selectedPanel === 'agent-skill-config'}
-            label={t('app.agentSkillConfig')}
-            onClick={onSelectAgentSkillConfig}
-          />
-          <SettingsEntry
-            badge={hasPendingUpdate ? t('updates.restartBadge') : undefined}
-            isSelected={selectedPanel === 'settings'}
-            label={t('app.settings')}
-            onClick={onSelectSettings}
-          />
-        </div>
-      </div>
     </aside>
   )
 }

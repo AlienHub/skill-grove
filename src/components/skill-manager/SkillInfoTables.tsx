@@ -120,8 +120,8 @@ export function SkillSourceTable({
   const rows = useMemo(() => buildSourceRows(skill, t), [skill, t])
 
   return (
-    <div className="relative z-30 rounded-[8px] border border-border/50 bg-[var(--surface)]">
-      <div className="flex items-center justify-between gap-3 border-b border-border/50 px-3 py-2">
+    <div className="relative z-30 overflow-hidden rounded-[8px] border border-[color-mix(in_srgb,var(--foreground)_9%,transparent)] bg-[var(--surface)] shadow-minimal-flat">
+      <div className="flex items-center justify-between gap-3 border-b border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-3 py-2">
         <div className="min-w-0">
           <p className="text-[12px] font-medium text-foreground/68">{t('table.currentSource')}</p>
           <p className="mt-0.5 truncate text-[11px] text-foreground/38">{skill.skillDirectory}</p>
@@ -148,7 +148,7 @@ export function SkillSourceTable({
           />
         </div>
       </div>
-      <dl className="divide-y divide-border/50">
+      <dl className="divide-y divide-[color-mix(in_srgb,var(--foreground)_7%,transparent)]">
         {rows.map((row) => (
           <div
             className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 px-3 py-2 sm:grid-cols-[96px_minmax(0,1fr)]"
