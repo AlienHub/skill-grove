@@ -8,7 +8,7 @@
 
 <p>
   <a href="https://github.com/AlienHub/skill-grove/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.6.2-111827.svg">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.6.3-111827.svg">
   <img alt="Tauri" src="https://img.shields.io/badge/Tauri-v2-24C8DB.svg">
   <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB.svg">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6.svg">
@@ -193,7 +193,7 @@ mkdir -p /tmp/skill-grove-dmg
 cp -R "src-tauri/target/release/bundle/macos/Skill Grove.app" /tmp/skill-grove-dmg/
 ln -s /Applications /tmp/skill-grove-dmg/Applications
 hdiutil create -volname "Skill Grove" -srcfolder /tmp/skill-grove-dmg -ov -format UDZO \
-  "src-tauri/target/release/bundle/dmg/Skill Grove_0.6.2_aarch64.dmg"
+  "src-tauri/target/release/bundle/dmg/Skill Grove_0.6.3_aarch64.dmg"
 ```
 
 ## Skill Directory Discovery
