@@ -37,6 +37,7 @@ import {
   groupMatchesLibraryFilter,
   readAndStoreLibraryVisitState,
 } from '../skill-manager/libraryInsights'
+import { resolvedSkillDirectoriesForStartupScan } from '../skill-manager/startupScan'
 import { buildAgentCatalogProfiles } from '../skill-manager/catalogProfiles'
 import {
   type AgentCatalogProfile,
@@ -132,7 +133,10 @@ export function SkillManagerPage() {
   const [primaryRepositoryError, setPrimaryRepositoryError] = useState<string | null>(null)
   const [skillUsage, setSkillUsage] = useState<SkillUsageSnapshot>(emptySkillUsage)
   const [usageRefreshing, setUsageRefreshing] = useState(false)
+  const [hasLoadedSkillUsageState, setHasLoadedSkillUsageState] = useState(false)
+  const startupUsageScanStarted = useRef(false)
   const autoScannedUsageKeys = useRef(new Set<string>())
+  const lastSkillDataRefreshAt = useRef(0)
 
   const skillGroups = useMemo(
     () => sortSkillGroupsByActivity(buildSkillGroups(skillState.skills), libraryActivity),
@@ -188,6 +192,7 @@ export function SkillManagerPage() {
   useEffect(() => {
     let isMounted = true
 
+    lastSkillDataRefreshAt.current = Date.now()
     fetchSkillManagerState()
       .then((state) => {
         if (!isMounted) {
@@ -210,6 +215,45 @@ export function SkillManagerPage() {
   }, [])
 
   useEffect(() => {
+    if (!isTauriWindow) {
+      return
+    }
+
+    let isMounted = true
+    const refreshSkillDataOnAppOpen = () => {
+      if (document.visibilityState === 'hidden') {
+        return
+      }
+
+      const now = Date.now()
+      if (now - lastSkillDataRefreshAt.current < 2000) {
+        return
+      }
+
+      lastSkillDataRefreshAt.current = now
+      fetchSkillManagerState()
+        .then((state) => {
+          if (isMounted) {
+            setSkillState(state)
+            setHasLoadedSkillState(true)
+          }
+        })
+        .catch((error) => {
+          console.warn('Failed to refresh skill data on app open', error)
+        })
+    }
+
+    window.addEventListener('focus', refreshSkillDataOnAppOpen)
+    document.addEventListener('visibilitychange', refreshSkillDataOnAppOpen)
+
+    return () => {
+      isMounted = false
+      window.removeEventListener('focus', refreshSkillDataOnAppOpen)
+      document.removeEventListener('visibilitychange', refreshSkillDataOnAppOpen)
+    }
+  }, [isTauriWindow])
+
+  useEffect(() => {
     let isMounted = true
 
     loadSkillUsageState()
@@ -223,11 +267,62 @@ export function SkillManagerPage() {
           setSkillUsage(emptySkillUsage)
         }
       })
+      .finally(() => {
+        if (isMounted) {
+          setHasLoadedSkillUsageState(true)
+        }
+      })
 
     return () => {
       isMounted = false
     }
   }, [])
+
+  useEffect(() => {
+    if (
+      !isTauriWindow ||
+      !hasLoadedSkillState ||
+      !hasLoadedSkillUsageState ||
+      startupUsageScanStarted.current
+    ) {
+      return
+    }
+
+    const resolvedSkillDirectories = resolvedSkillDirectoriesForStartupScan(skillState.skills)
+    if (!resolvedSkillDirectories.length) {
+      return
+    }
+
+    startupUsageScanStarted.current = true
+    let isMounted = true
+
+    setUsageRefreshing(true)
+    refreshSkillUsage(resolvedSkillDirectories)
+      .then((next) => {
+        if (isMounted) {
+          setSkillUsage(next)
+        }
+
+        for (const group of skillGroups) {
+          const scanKey = [...resolvedSkillDirectoriesForGroup(group)].sort().join('\n')
+          if (scanKey) {
+            autoScannedUsageKeys.current.add(scanKey)
+          }
+        }
+      })
+      .catch((error) => {
+        console.warn('Failed to refresh skill usage on startup', error)
+      })
+      .finally(() => {
+        if (isMounted) {
+          setUsageRefreshing(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [hasLoadedSkillState, hasLoadedSkillUsageState, isTauriWindow, skillGroups, skillState.skills])
 
   useEffect(() => {
     setLibraryActivity(readLibraryActivity())
