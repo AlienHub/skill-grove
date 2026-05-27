@@ -36,6 +36,16 @@ fn slashify_path(p: &str) -> String {
     p.replace('\\', "/")
 }
 
+fn normalize_skill_md_path(path: &str) -> String {
+    let normalized = slashify_path(path.trim());
+    let path = PathBuf::from(&normalized);
+    if let Ok(canonical) = path.canonicalize() {
+        slashify_path(&canonical.to_string_lossy())
+    } else {
+        normalized
+    }
+}
+
 fn command_name(cmd: &str) -> Option<&str> {
     cmd.split_whitespace()
         .find(|part| !part.contains('=') && !part.starts_with('-'))
@@ -86,6 +96,80 @@ fn exec_command_from_call(value: &Value) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+fn message_input_texts(value: &Value) -> Vec<&str> {
+    if value
+        .get("payload")
+        .and_then(|payload| payload.get("type"))
+        .and_then(Value::as_str)
+        != Some("message")
+    {
+        return Vec::new();
+    }
+
+    let Some(payload) = value.get("payload") else {
+        return Vec::new();
+    };
+    if payload.get("role").and_then(Value::as_str) != Some("user") {
+        return Vec::new();
+    }
+
+    payload
+        .get("content")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.get("text").and_then(Value::as_str))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn extract_skill_context_paths(text: &str) -> Vec<&str> {
+    let mut paths = Vec::new();
+    let mut rest = text;
+
+    while let Some(start) = rest.find("<skill>") {
+        let skill_rest = &rest[start + "<skill>".len()..];
+        let Some(end) = skill_rest.find("</skill>") else {
+            break;
+        };
+        let skill_block = &skill_rest[..end];
+        if let Some(path_start) = skill_block.find("<path>") {
+            let path_rest = &skill_block[path_start + "<path>".len()..];
+            if let Some(path_end) = path_rest.find("</path>") {
+                paths.push(path_rest[..path_end].trim());
+            }
+        }
+        rest = &skill_rest[end + "</skill>".len()..];
+    }
+
+    paths
+}
+
+fn count_injected_skill_contexts(
+    value: &Value,
+    allowed_longest_first: &[String],
+    counts: &mut HashMap<String, u64>,
+) {
+    let mut counted = std::collections::HashSet::new();
+
+    for text in message_input_texts(value) {
+        for path in extract_skill_context_paths(text) {
+            let normalized = normalize_skill_md_path(path);
+            if !counted.insert(normalized.clone()) {
+                continue;
+            }
+            if let Some(hit) = allowed_longest_first
+                .iter()
+                .find(|allowed| **allowed == normalized)
+            {
+                *counts.entry(hit.clone()).or_default() += 1;
+            }
+        }
+    }
+}
+
 fn scan_one_codex_jsonl(
     path: &Path,
     allowed_longest_first: &[String],
@@ -97,6 +181,7 @@ fn scan_one_codex_jsonl(
     for line in reader.lines() {
         let line = line?;
         if let Ok(value) = serde_json::from_str::<Value>(&line) {
+            count_injected_skill_contexts(&value, allowed_longest_first, counts);
             if let Some(cmd) = exec_command_from_call(&value) {
                 for hit in command_hits_allowed_skill(&cmd, allowed_longest_first) {
                     *counts.entry(hit).or_default() += 1;
@@ -142,7 +227,7 @@ pub fn scan_codex_session_jsonl(
 
     if failures == 0 {
         notes.push(format!(
-            "Codex: scanned {} session file(s), counted direct SKILL.md reads only",
+            "Codex: scanned {} session file(s), counted injected skill contexts and direct SKILL.md reads only",
             files.len()
         ));
     }
@@ -166,5 +251,26 @@ mod tests {
         let allowed = vec!["/tmp/skills/dws/SKILL.md".to_string()];
         let hits = command_hits_allowed_skill("rg -n SKILL.md /tmp/skills/dws/SKILL.md", &allowed);
         assert!(hits.is_empty());
+    }
+
+    #[test]
+    fn injected_skill_context_counts_manual_skill_attachment() {
+        let allowed = vec!["/tmp/skills/publish-html-artifact/SKILL.md".to_string()];
+        let value = serde_json::json!({
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "user",
+                "content": [{
+                    "type": "input_text",
+                    "text": "<skill>\n<name>publish-html-artifact</name>\n<path>/tmp/skills/publish-html-artifact/SKILL.md</path>\n---\nname: publish-html-artifact\n---\n</skill>"
+                }]
+            }
+        });
+        let mut counts = HashMap::new();
+
+        count_injected_skill_contexts(&value, &allowed, &mut counts);
+
+        assert_eq!(counts.get(&allowed[0]), Some(&1));
     }
 }

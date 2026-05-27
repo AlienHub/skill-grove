@@ -165,7 +165,7 @@ pub fn refresh_skill_usage_for_paths(
     snapshot.last_scan_at = Some(rfc3339_now());
 
     let scope_note = format!(
-        "范围：当前技能 {} 个来源版本（Claude Code invoked_skills + Codex/OpenClaw/Craft Agents SKILL.md 读取，且仅更新此项，其它技能计数不变）",
+        "范围：当前技能 {} 个来源版本（Claude Code invoked_skills + Codex 手动技能上下文/直接 SKILL.md 读取 + OpenClaw/Craft Agents SKILL.md 读取，且仅更新此项，其它技能计数不变）",
         allowed.len()
     );
     notes.insert(0, scope_note);
