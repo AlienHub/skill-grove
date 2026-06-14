@@ -47,7 +47,7 @@ struct LocalSkill {
     metadata: Map<String, Value>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct BuiltInDirectoryState {
     #[serde(rename = "agentId")]
     agent_id: String,
@@ -77,6 +77,8 @@ struct DirectoryOpenTarget {
 struct SkillManagerState {
     #[serde(rename = "configuredDirectories")]
     configured_directories: Vec<String>,
+    #[serde(rename = "shareTargetDirectories")]
+    share_target_directories: Vec<String>,
     #[serde(rename = "userConfiguredDirectories")]
     user_configured_directories: Vec<String>,
     #[serde(rename = "builtInDirectories")]
@@ -203,7 +205,7 @@ fn built_in_skill_directories() -> Vec<BuiltInSkillDirectory> {
         BuiltInSkillDirectory {
             path: home.join(".claude").join("skills"),
             agent_id: "claude",
-            agent_name: "Claude",
+            agent_name: "Claude Code",
             commands: &["claude"],
             app_names: &["Claude"],
         },
@@ -672,6 +674,27 @@ fn enabled_built_in_directories() -> Vec<String> {
         .filter(|directory| directory.scan_enabled)
         .map(|directory| directory.directory)
         .collect()
+}
+
+fn share_target_directories_from_states(
+    configured_directories: Vec<String>,
+    built_in_directories: Vec<BuiltInDirectoryState>,
+) -> Vec<String> {
+    let installed_built_in_directories = built_in_directories
+        .into_iter()
+        .filter(|directory| directory.installed)
+        .map(|directory| directory.directory);
+
+    normalize_configured_directories(
+        configured_directories
+            .into_iter()
+            .chain(installed_built_in_directories)
+            .collect(),
+    )
+}
+
+fn read_share_target_directories() -> Vec<String> {
+    share_target_directories_from_states(read_configured_directories(), built_in_directory_states())
 }
 
 fn read_skill_manager_config() -> SkillManagerConfig {
@@ -1174,8 +1197,26 @@ fn create_directory_symlink(target_directory: &Path, link_directory: &Path) -> R
 }
 
 fn ensure_target_source_directory(target_source_directory: &Path) -> Result<(), String> {
+    let normalized_targets = normalize_configured_directories(vec![
+        target_source_directory.to_string_lossy().to_string(),
+    ]);
+    let Some(normalized_target) = normalized_targets.first() else {
+        return Err("目标 Agent 目录不能为空。".to_string());
+    };
+
+    let share_targets = read_share_target_directories();
+    if !share_targets.iter().any(|directory| directory == normalized_target) {
+        return Err("只能分享到当前已安装或已配置的 Agent 目录。".to_string());
+    }
+
+    if !target_source_directory.exists() {
+        fs::create_dir_all(target_source_directory)
+            .map_err(|error| format!("无法创建目标 Agent 目录：{error}"))?;
+        return Ok(());
+    }
+
     if !target_source_directory.is_dir() {
-        return Err("目标 Agent 目录不存在。".to_string());
+        return Err("目标 Agent 目录不是文件夹。".to_string());
     }
 
     let target_source_directory = target_source_directory
@@ -1193,7 +1234,7 @@ fn ensure_target_source_directory(target_source_directory: &Path) -> Result<(), 
         }
     }
 
-    Err("只能分享到当前已配置的 Agent 目录。".to_string())
+    Err("只能分享到当前已安装或已配置的 Agent 目录。".to_string())
 }
 
 fn skill_relative_location(skill_directory: &Path) -> Result<PathBuf, String> {
@@ -1449,6 +1490,10 @@ fn load_skill_manager_state() -> SkillManagerState {
     let user_configured_directories = read_user_configured_directories();
     let built_in_directories = built_in_directory_states();
     let configured_directories = read_configured_directories();
+    let share_target_directories = share_target_directories_from_states(
+        configured_directories.clone(),
+        built_in_directories.clone(),
+    );
     let source_icons = read_source_icons();
     let mut skill_files = Vec::new();
 
@@ -1533,6 +1578,7 @@ fn load_skill_manager_state() -> SkillManagerState {
 
     SkillManagerState {
         configured_directories,
+        share_target_directories,
         user_configured_directories,
         built_in_directories,
         discovered_directories,
@@ -1820,6 +1866,34 @@ fn macos_show_main_if_needed<R: tauri::Runtime>(
     if let Some(window) = app_handle.get_webview_window("main") {
         let _ = window.show();
         let _ = window.set_focus();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{share_target_directories_from_states, BuiltInDirectoryState};
+
+    #[test]
+    fn installed_builtin_directory_without_existing_folder_is_share_target() {
+        let targets = share_target_directories_from_states(
+            vec!["/Users/alice/.codex/skills".to_string()],
+            vec![BuiltInDirectoryState {
+                agent_id: "claude".to_string(),
+                agent_name: "Claude".to_string(),
+                directory: "/Users/alice/.claude/skills".to_string(),
+                installed: true,
+                directory_exists: false,
+                scan_enabled: false,
+            }],
+        );
+
+        assert_eq!(
+            targets,
+            vec![
+                "/Users/alice/.codex/skills".to_string(),
+                "/Users/alice/.claude/skills".to_string(),
+            ]
+        );
     }
 }
 

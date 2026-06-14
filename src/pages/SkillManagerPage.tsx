@@ -705,11 +705,11 @@ export function SkillManagerPage() {
             />
           ) : selectedSkill && selectedSkillGroup ? (
             <SkillDetailPanel
-              configuredDirectories={skillState.configuredDirectories}
               hasTitlebarInset={isTauriWindow}
               openDirectoryTargets={skillState.openDirectoryTargets}
               primarySkillRepository={skillState.primarySkillRepository}
               recentChanges={libraryVisitState.changesBySkillId[selectedSkillGroup.id] ?? []}
+              shareTargetDirectories={skillState.shareTargetDirectories}
               isPinned={libraryActivity.pinnedSkillIds.includes(selectedSkillGroup.id)}
               selectedSkill={selectedSkill}
               selectedSkillGroup={selectedSkillGroup}

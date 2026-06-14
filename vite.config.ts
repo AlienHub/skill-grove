@@ -66,6 +66,7 @@ type DirectoryOpenTarget = {
 
 type SkillManagerState = {
   configuredDirectories: string[]
+  shareTargetDirectories: string[]
   userConfiguredDirectories: string[]
   builtInDirectories: BuiltInDirectoryState[]
   discoveredDirectories: string[]
@@ -385,6 +386,22 @@ function enabledBuiltInDirectories() {
   return getBuiltInDirectoryStates()
     .filter((directory) => directory.scanEnabled)
     .map((directory) => directory.directory)
+}
+
+function shareTargetDirectoriesFromStates(
+  configuredDirectories: string[],
+  builtInDirectories: BuiltInDirectoryState[]
+) {
+  return normalizeConfiguredDirectories([
+    ...configuredDirectories,
+    ...builtInDirectories
+      .filter((directory) => directory.installed)
+      .map((directory) => directory.directory),
+  ])
+}
+
+function readShareTargetDirectories() {
+  return shareTargetDirectoriesFromStates(readConfiguredDirectories(), getBuiltInDirectoryStates())
 }
 
 function readUserConfiguredDirectories() {
@@ -826,8 +843,22 @@ function createDirectorySymlink(targetDirectory: string, linkDirectory: string) 
 }
 
 function ensureTargetSourceDirectory(targetSourceDirectory: string) {
-  if (!existsSync(targetSourceDirectory) || !statSync(targetSourceDirectory).isDirectory()) {
-    throw new Error('目标 Agent 目录不存在。')
+  const [normalizedTarget] = normalizeConfiguredDirectories([targetSourceDirectory])
+  if (!normalizedTarget) {
+    throw new Error('目标 Agent 目录不能为空。')
+  }
+
+  if (!readShareTargetDirectories().includes(normalizedTarget)) {
+    throw new Error('只能分享到当前已安装或已配置的 Agent 目录。')
+  }
+
+  if (!existsSync(targetSourceDirectory)) {
+    mkdirSync(targetSourceDirectory, { recursive: true })
+    return
+  }
+
+  if (!statSync(targetSourceDirectory).isDirectory()) {
+    throw new Error('目标 Agent 目录不是文件夹。')
   }
 
   const resolvedTargetSourceDirectory = realpathSync(targetSourceDirectory)
@@ -841,7 +872,7 @@ function ensureTargetSourceDirectory(targetSourceDirectory: string) {
     }
   }
 
-  throw new Error('只能分享到当前已配置的 Agent 目录。')
+  throw new Error('只能分享到当前已安装或已配置的 Agent 目录。')
 }
 
 function skillRelativeLocation(skillDirectory: string) {
@@ -1189,6 +1220,7 @@ function loadSkillManagerState(): SkillManagerState {
 
   return {
     configuredDirectories,
+    shareTargetDirectories: shareTargetDirectoriesFromStates(configuredDirectories, builtInDirectories),
     userConfiguredDirectories,
     builtInDirectories,
     discoveredDirectories: Array.from(discoveredDirectories).sort((left, right) =>

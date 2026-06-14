@@ -3,6 +3,7 @@ declare module 'virtual:skill-manager-state' {
   export const skillManagerApiBase: string
   export const initialSkillManagerState: {
     configuredDirectories: string[]
+    shareTargetDirectories: string[]
     userConfiguredDirectories: string[]
     builtInDirectories: Array<{
       agentId: string

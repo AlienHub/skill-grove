@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
-import { AgentIcon } from '../../skill-manager/agentInfo'
+import { AgentIcon, getAgentInfoFromDirectory } from '../../skill-manager/agentInfo'
 import { displayAgentName } from '../../skill-manager/display'
 import { useAppPreferences } from '../../skill-manager/preferences'
+import { buildAvailableShareTargets, toggleShareTargetSelection } from '../../skill-manager/shareTargets'
 import { isRealSkillSource, isResolvedSkillUnderPrimaryRepository } from '../../skill-manager/skillGrouping'
 import { type DirectoryOpenTarget, type Skill, type SkillGroup } from '../../skill-manager/types'
 import { DefinitionTable } from './DefinitionTable'
 import { SkillSourceActions, SkillSourceRemoveButton } from './SkillSourceActions'
+import { BodyPortal } from '../ui/BodyPortal'
 import { Ripple } from '../ui/Ripple'
 
 function formatValue(value: unknown) {
@@ -92,9 +94,9 @@ export function SkillMetadataTable({ skill }: { skill: Skill }) {
 }
 
 export function SkillSourceTable({
-  configuredDirectories,
   openDirectoryTargets,
   primarySkillRepository,
+  shareTargetDirectories,
   skill,
   skillGroup,
   sourceCount,
@@ -104,9 +106,9 @@ export function SkillSourceTable({
   onMigrateToPrimary,
   onRemoveSource,
 }: {
-  configuredDirectories: string[]
   openDirectoryTargets: DirectoryOpenTarget[]
   primarySkillRepository: string
+  shareTargetDirectories: string[]
   skill: Skill
   skillGroup: SkillGroup
   sourceCount: number
@@ -128,8 +130,8 @@ export function SkillSourceTable({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <SkillSourceGovernanceActions
-            configuredDirectories={configuredDirectories}
             primarySkillRepository={primarySkillRepository}
+            shareTargetDirectories={shareTargetDirectories}
             skill={skill}
             skillGroup={skillGroup}
             onCreateSymlink={onCreateSymlink}
@@ -171,6 +173,11 @@ function directoryLabel(directory: string, skillGroup: SkillGroup, t: ReturnType
     return displayAgentName(sourceSkill.agentId, sourceSkill.agentName, t)
   }
 
+  const agentInfo = getAgentInfoFromDirectory(directory)
+  if (agentInfo.agentId !== 'unknown') {
+    return displayAgentName(agentInfo.agentId, agentInfo.agentName, t)
+  }
+
   const directoryName = directory.split('/').filter(Boolean).at(-1)
   return directoryName ?? directory
 }
@@ -188,8 +195,8 @@ function errorText(error: unknown, fallback: string) {
 }
 
 function SkillSourceGovernanceActions({
-  configuredDirectories,
   primarySkillRepository,
+  shareTargetDirectories,
   skill,
   skillGroup,
   onCreateSymlink,
@@ -197,8 +204,8 @@ function SkillSourceGovernanceActions({
   onExportZip,
   onMigrateToPrimary,
 }: {
-  configuredDirectories: string[]
   primarySkillRepository: string
+  shareTargetDirectories: string[]
   skill: Skill
   skillGroup: SkillGroup
   onCreateSymlink: (skill: Skill, targetSourceDirectory: string) => Promise<void>
@@ -211,9 +218,11 @@ function SkillSourceGovernanceActions({
   const [isProcessing, setIsProcessing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [selectedShareTargets, setSelectedShareTargets] = useState<string[]>([])
   const isRealSource = isRealSkillSource(skill)
+  const existingSourceDirectories = skillGroup.skills.map((groupSkill) => groupSkill.sourceDirectory)
   const shareTargets = isRealSource
-    ? configuredDirectories.filter((directory) => directory !== skill.sourceDirectory)
+    ? buildAvailableShareTargets(shareTargetDirectories, skill.sourceDirectory, existingSourceDirectories)
     : []
   const currentVariant = skillGroup.variants.find((variant) =>
     variant.skills.some((variantSkill) => variantSkill.id === skill.id)
@@ -228,6 +237,7 @@ function SkillSourceGovernanceActions({
     : []
   const hasShareTargets = shareTargets.length > 0
   const hasConvertTargets = convertTargets.length > 0
+  const selectedShareTargetCount = selectedShareTargets.length
   const canMigrateToPrimary =
     isRealSource && !isResolvedSkillUnderPrimaryRepository(skill.resolvedSkillDirectory, primarySkillRepository)
 
@@ -242,14 +252,43 @@ function SkillSourceGovernanceActions({
 
     setMode(null)
     setErrorMessage(null)
+    setSelectedShareTargets([])
   }
 
-  const handleShare = (targetSourceDirectory: string) => {
+  const openShareMode = () => {
+    setErrorMessage(null)
+    setSelectedShareTargets(shareTargets)
+    setMode('share')
+  }
+
+  const handleToggleShareTarget = (targetSourceDirectory: string) => {
+    setSelectedShareTargets((currentTargets) =>
+      toggleShareTargetSelection(currentTargets, targetSourceDirectory, shareTargets)
+    )
+  }
+
+  const handleToggleAllShareTargets = () => {
+    setSelectedShareTargets((currentTargets) =>
+      currentTargets.length === shareTargets.length ? [] : shareTargets
+    )
+  }
+
+  const handleShareSelected = () => {
+    const targets = shareTargets.filter((target) => selectedShareTargets.includes(target))
+    if (targets.length === 0) {
+      return
+    }
+
     setIsProcessing(true)
     setErrorMessage(null)
 
-    void onCreateSymlink(skill, targetSourceDirectory)
-      .then(() => setMode(null))
+    void (async () => {
+      for (const target of targets) {
+        await onCreateSymlink(skill, target)
+      }
+      setSelectedShareTargets([])
+      setMode(null)
+    })()
       .catch((error) => setErrorMessage(errorText(error, t('source.shareFailed'))))
       .finally(() => setIsProcessing(false))
   }
@@ -297,10 +336,7 @@ function SkillSourceGovernanceActions({
       {hasShareTargets ? (
         <button
           className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground"
-          onClick={() => {
-            setErrorMessage(null)
-            setMode('share')
-          }}
+          onClick={openShareMode}
           type="button"
         >
           {t('source.share')}
@@ -332,96 +368,153 @@ function SkillSourceGovernanceActions({
       ) : null}
 
       {mode ? (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/22 px-4">
-          <div className="w-full max-w-[480px] rounded-[8px] border border-border/60 bg-[var(--surface)] p-5 shadow-strong">
-            <h4 className="text-[14px] font-semibold text-foreground">
-              {mode === 'share'
-                ? t('source.shareTitle')
-                : mode === 'convert'
-                  ? t('source.convertToSoftLinkTitle')
-                  : t('source.migrateToPrimaryTitle')}
-            </h4>
-            <p className="mt-2 text-[12px] leading-5 text-foreground/56">
-              {mode === 'share'
-                ? t('source.shareDescription')
-                : mode === 'convert'
-                  ? t('source.convertToSoftLinkDescription')
-                  : t('source.migrateToPrimaryDescription', { path: primarySkillRepository })}
-            </p>
-            {mode === 'share' || mode === 'convert' ? (
-              <div className="mt-4 max-h-[260px] space-y-1 overflow-y-auto">
+        <BodyPortal>
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/22 px-4">
+            <div className="w-full max-w-[480px] rounded-[8px] border border-border/60 bg-[var(--surface)] p-5 shadow-strong">
+              <h4 className="text-[14px] font-semibold text-foreground">
                 {mode === 'share'
-                  ? shareTargets.map((directory) => (
-                      <button
-                        className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition-colors hover:bg-foreground/5 disabled:cursor-default disabled:opacity-55"
-                        disabled={isProcessing}
-                        key={directory}
-                        onClick={() => handleShare(directory)}
-                        type="button"
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-[12px] font-medium text-foreground/78">
-                            {directoryLabel(directory, skillGroup, t)}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[11px] text-foreground/42">{directory}</span>
-                        </span>
-                        {isProcessing ? <Ripple className="text-foreground/48" size={14} /> : null}
-                      </button>
-                    ))
-                  : convertTargets.map((targetSkill) => (
-                      <button
-                        className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition-colors hover:bg-foreground/5 disabled:cursor-default disabled:opacity-55"
-                        disabled={isProcessing}
-                        key={targetSkill.id}
-                        onClick={() => handleConvert(targetSkill)}
-                        type="button"
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-[12px] font-medium text-foreground/78">
-                            {displayAgentName(targetSkill.agentId, targetSkill.agentName, t)}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[11px] text-foreground/42">
-                            {targetSkill.skillDirectory}
-                          </span>
-                        </span>
-                        {isProcessing ? <Ripple className="text-foreground/48" size={14} /> : null}
-                      </button>
-                    ))}
-              </div>
-            ) : null}
-            {errorMessage ? (
-              <p className="mt-3 rounded-[8px] border border-[#b04a3a]/25 bg-[#b04a3a]/7 px-3 py-2 text-[12px] text-[#8f3f33]">
-                {errorMessage}
+                  ? t('source.shareTitle')
+                  : mode === 'convert'
+                    ? t('source.convertToSoftLinkTitle')
+                    : t('source.migrateToPrimaryTitle')}
+              </h4>
+              <p className="mt-2 text-[12px] leading-5 text-foreground/56">
+                {mode === 'share'
+                  ? t('source.shareDescription')
+                  : mode === 'convert'
+                    ? t('source.convertToSoftLinkDescription')
+                    : t('source.migrateToPrimaryDescription', { path: primarySkillRepository })}
               </p>
-            ) : null}
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button
-                className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 text-[12px] font-medium text-foreground/64 transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-default disabled:opacity-55"
-                disabled={isProcessing}
-                onClick={close}
-                type="button"
-              >
-                {t('common.cancel')}
-              </button>
-              {mode === 'migratePrimary' ? (
+              {mode === 'share' || mode === 'convert' ? (
+                <>
+                  {mode === 'share' ? (
+                    <div className="mt-4">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-[11px] text-foreground/42">
+                          {t('source.shareSelectedCount', { count: selectedShareTargetCount })}
+                        </p>
+                        <button
+                          className="h-7 cursor-pointer rounded-[7px] px-2 text-[11px] font-medium text-foreground/48 transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-default disabled:opacity-35"
+                          disabled={isProcessing}
+                          onClick={handleToggleAllShareTargets}
+                          type="button"
+                        >
+                          {selectedShareTargetCount === shareTargets.length
+                            ? t('source.shareClearAll')
+                            : t('source.shareSelectAll')}
+                        </button>
+                      </div>
+                      <div className="max-h-[260px] space-y-1 overflow-y-auto">
+                        {shareTargets.map((directory) => {
+                          const selected = selectedShareTargets.includes(directory)
+                          return (
+                            <button
+                              aria-pressed={selected}
+                              className="flex w-full cursor-pointer items-center gap-3 rounded-[8px] px-3 py-2 text-left transition-colors hover:bg-foreground/5 disabled:cursor-default disabled:opacity-55"
+                              disabled={isProcessing}
+                              key={directory}
+                              onClick={() => handleToggleShareTarget(directory)}
+                              type="button"
+                            >
+                              <span
+                                className={`flex size-4 shrink-0 items-center justify-center rounded-[4px] border text-[10px] font-semibold ${
+                                  selected
+                                    ? 'border-foreground bg-foreground text-background'
+                                    : 'border-border/70 bg-[var(--surface)] text-transparent'
+                                }`}
+                              >
+                                <span className="size-1.5 rounded-[2px] bg-current" />
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-[12px] font-medium text-foreground/78">
+                                  {directoryLabel(directory, skillGroup, t)}
+                                </span>
+                                <span className="mt-0.5 block truncate text-[11px] text-foreground/42">{directory}</span>
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 max-h-[260px] space-y-1 overflow-y-auto">
+                      {convertTargets.map((targetSkill) => (
+                        <button
+                          className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left transition-colors hover:bg-foreground/5 disabled:cursor-default disabled:opacity-55"
+                          disabled={isProcessing}
+                          key={targetSkill.id}
+                          onClick={() => handleConvert(targetSkill)}
+                          type="button"
+                        >
+                          <span className="min-w-0">
+                            <span className="block text-[12px] font-medium text-foreground/78">
+                              {displayAgentName(targetSkill.agentId, targetSkill.agentName, t)}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[11px] text-foreground/42">
+                              {targetSkill.skillDirectory}
+                            </span>
+                          </span>
+                          {isProcessing ? <Ripple className="text-foreground/48" size={14} /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : null}
+              {errorMessage ? (
+                <p className="mt-3 rounded-[8px] border border-[#b04a3a]/25 bg-[#b04a3a]/7 px-3 py-2 text-[12px] text-[#8f3f33]">
+                  {errorMessage}
+                </p>
+              ) : null}
+              <div className="mt-5 flex flex-wrap justify-end gap-2">
                 <button
-                  className="flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-default disabled:opacity-55"
+                  className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 text-[12px] font-medium text-foreground/64 transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-default disabled:opacity-55"
                   disabled={isProcessing}
-                  onClick={handleMigrateToPrimary}
+                  onClick={close}
                   type="button"
                 >
-                  {isProcessing ? <Ripple className="text-background/72" size={12} /> : null}
-                  {t('source.migrateToPrimaryConfirm')}
+                  {t('common.cancel')}
                 </button>
-              ) : null}
+                {mode === 'migratePrimary' ? (
+                  <button
+                    className="flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-default disabled:opacity-55"
+                    disabled={isProcessing}
+                    onClick={handleMigrateToPrimary}
+                    type="button"
+                  >
+                    {isProcessing ? <Ripple className="text-background/72" size={12} /> : null}
+                    {t('source.migrateToPrimaryConfirm')}
+                  </button>
+                ) : mode === 'share' ? (
+                  <button
+                    className={`flex h-8 min-w-[128px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] px-3 text-[12px] font-medium transition-colors disabled:cursor-default ${
+                      selectedShareTargetCount === 0
+                        ? 'border border-border/50 bg-foreground/5 text-foreground/34'
+                        : 'bg-foreground text-background hover:opacity-88'
+                    }`}
+                    disabled={isProcessing || selectedShareTargetCount === 0}
+                    onClick={handleShareSelected}
+                    type="button"
+                  >
+                    {isProcessing ? <Ripple className="text-background/72" size={12} /> : null}
+                    {isProcessing
+                      ? t('common.processing')
+                      : selectedShareTargetCount === 0
+                        ? t('source.shareChooseTarget')
+                        : t('source.shareSelected', { count: selectedShareTargetCount })}
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
+        </BodyPortal>
       ) : null}
       {errorMessage && !mode ? (
-        <p className="fixed bottom-5 right-5 z-[650] max-w-[360px] rounded-[8px] border border-[#b04a3a]/25 bg-[var(--surface)] px-3 py-2 text-[12px] text-[#8f3f33] shadow-strong">
-          {errorMessage}
-        </p>
+        <BodyPortal>
+          <p className="fixed bottom-5 right-5 z-[1000] max-w-[360px] rounded-[8px] border border-[#b04a3a]/25 bg-[var(--surface)] px-3 py-2 text-[12px] text-[#8f3f33] shadow-strong">
+            {errorMessage}
+          </p>
+        </BodyPortal>
       ) : null}
     </>
   )

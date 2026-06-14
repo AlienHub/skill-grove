@@ -31,7 +31,7 @@ const AGENT_DIRECTORY_MARKERS: Array<AgentInfo & { marker: string }> = [
   { marker: '/.config/crush/skills', agentId: 'crush', agentName: 'Crush' },
   { marker: '/.agents/skills', agentId: 'agents', agentName: 'Agents' },
   { marker: '/.codex/skills', agentId: 'codex', agentName: 'Codex' },
-  { marker: '/.claude/skills', agentId: 'claude', agentName: 'Claude' },
+  { marker: '/.claude/skills', agentId: 'claude', agentName: 'Claude Code' },
   { marker: '/.cursor/skills', agentId: 'cursor', agentName: 'Cursor' },
   { marker: '/.continue/skills', agentId: 'continue', agentName: 'Continue' },
   { marker: '/.gemini/skills', agentId: 'gemini', agentName: 'Gemini' },

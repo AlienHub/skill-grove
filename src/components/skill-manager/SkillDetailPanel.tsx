@@ -49,12 +49,12 @@ function SkillInsightNotes({
 }
 
 export function SkillDetailPanel({
-  configuredDirectories,
   hasTitlebarInset,
   isPinned,
   openDirectoryTargets,
   primarySkillRepository,
   recentChanges,
+  shareTargetDirectories,
   selectedSkill,
   selectedSkillGroup,
   skillUsage,
@@ -68,12 +68,12 @@ export function SkillDetailPanel({
   onSelectSkill,
   onTogglePinned,
 }: {
-  configuredDirectories: string[]
   hasTitlebarInset: boolean
   isPinned: boolean
   openDirectoryTargets: DirectoryOpenTarget[]
   primarySkillRepository: string
   recentChanges: LibraryChange[]
+  shareTargetDirectories: string[]
   selectedSkill: Skill
   selectedSkillGroup: SkillGroup
   skillUsage: SkillUsageSnapshot
@@ -169,9 +169,9 @@ export function SkillDetailPanel({
           />
           <div className={selectedSkillGroup.sourceCount > 1 ? 'mt-3' : undefined}>
             <SkillSourceTable
-              configuredDirectories={configuredDirectories}
               openDirectoryTargets={openDirectoryTargets}
               primarySkillRepository={primarySkillRepository}
+              shareTargetDirectories={shareTargetDirectories}
               skill={selectedSkill}
               skillGroup={selectedSkillGroup}
               sourceCount={selectedSkillGroup.sourceCount}
