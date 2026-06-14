@@ -168,6 +168,26 @@ export async function saveConfiguredDirectories(directories: string[]) {
   return (await response.json()) as SkillManagerState
 }
 
+export async function saveScanDirectoryEnabled(directory: string, enabled: boolean) {
+  if ('__TAURI_INTERNALS__' in window) {
+    return await invoke<SkillManagerState>('save_scan_directory_enabled', { directory, enabled })
+  }
+
+  const response = await fetch(`${skillManagerApiBase}/directories/scan-enabled`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ directory, enabled }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to update directory scan state')
+  }
+
+  return (await response.json()) as SkillManagerState
+}
+
 export async function savePrimarySkillRepository(path: string) {
   if ('__TAURI_INTERNALS__' in window) {
     return await invoke<SkillManagerState>('save_primary_skill_repository', { path })

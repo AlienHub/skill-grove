@@ -5,6 +5,7 @@ declare module 'virtual:skill-manager-state' {
     configuredDirectories: string[]
     shareTargetDirectories: string[]
     userConfiguredDirectories: string[]
+    disabledScanDirectories: string[]
     builtInDirectories: Array<{
       agentId: string
       agentName: string

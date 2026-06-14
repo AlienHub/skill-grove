@@ -81,6 +81,8 @@ struct SkillManagerState {
     share_target_directories: Vec<String>,
     #[serde(rename = "userConfiguredDirectories")]
     user_configured_directories: Vec<String>,
+    #[serde(rename = "disabledScanDirectories")]
+    disabled_scan_directories: Vec<String>,
     #[serde(rename = "builtInDirectories")]
     built_in_directories: Vec<BuiltInDirectoryState>,
     #[serde(rename = "discoveredDirectories")]
@@ -98,6 +100,8 @@ struct SkillManagerState {
 struct SkillManagerConfig {
     #[serde(rename = "skillDirectories")]
     skill_directories: Option<Vec<String>>,
+    #[serde(rename = "disabledScanDirectories")]
+    disabled_scan_directories: Option<Vec<String>>,
     #[serde(rename = "sourceIcons")]
     source_icons: Option<HashMap<String, SourceIcon>>,
     #[serde(rename = "primarySkillRepository")]
@@ -650,30 +654,52 @@ fn is_built_in_agent_installed(directory: &BuiltInSkillDirectory) -> bool {
             .any(|app_name| app_exists(app_name))
 }
 
-fn built_in_directory_states() -> Vec<BuiltInDirectoryState> {
+fn built_in_directory_states(disabled_scan_directories: &[String]) -> Vec<BuiltInDirectoryState> {
+    let disabled_scan_directories = disabled_scan_directories
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
+
     built_in_skill_directories()
         .into_iter()
         .map(|directory| {
             let directory_exists = directory.path.is_dir();
             let installed = is_built_in_agent_installed(&directory);
+            let directory_path = directory.path.to_string_lossy().to_string();
             BuiltInDirectoryState {
                 agent_id: directory.agent_id.to_string(),
                 agent_name: directory.agent_name.to_string(),
-                directory: directory.path.to_string_lossy().to_string(),
+                scan_enabled: installed
+                    && directory_exists
+                    && !disabled_scan_directories.contains(&directory_path),
+                directory: directory_path,
                 installed,
                 directory_exists,
-                scan_enabled: installed && directory_exists,
             }
         })
         .collect()
 }
 
-fn enabled_built_in_directories() -> Vec<String> {
-    built_in_directory_states()
+fn scan_directories_from_states(
+    user_configured_directories: Vec<String>,
+    built_in_directories: Vec<BuiltInDirectoryState>,
+    disabled_scan_directories: Vec<String>,
+) -> Vec<String> {
+    let disabled_scan_directories = disabled_scan_directories
         .into_iter()
-        .filter(|directory| directory.scan_enabled)
-        .map(|directory| directory.directory)
-        .collect()
+        .collect::<HashSet<_>>();
+    normalize_configured_directories(
+        user_configured_directories
+            .into_iter()
+            .filter(|directory| !disabled_scan_directories.contains(directory))
+            .chain(
+                built_in_directories
+                    .into_iter()
+                    .filter(|directory| directory.scan_enabled)
+                    .map(|directory| directory.directory),
+            )
+            .collect(),
+    )
 }
 
 fn share_target_directories_from_states(
@@ -694,7 +720,11 @@ fn share_target_directories_from_states(
 }
 
 fn read_share_target_directories() -> Vec<String> {
-    share_target_directories_from_states(read_configured_directories(), built_in_directory_states())
+    let disabled_scan_directories = read_disabled_scan_directories();
+    share_target_directories_from_states(
+        read_user_configured_directories(),
+        built_in_directory_states(&disabled_scan_directories),
+    )
 }
 
 fn read_skill_manager_config() -> SkillManagerConfig {
@@ -702,6 +732,7 @@ fn read_skill_manager_config() -> SkillManagerConfig {
     if !path.exists() {
         return SkillManagerConfig {
             skill_directories: None,
+            disabled_scan_directories: None,
             source_icons: None,
             primary_skill_repository: None,
         };
@@ -710,6 +741,7 @@ fn read_skill_manager_config() -> SkillManagerConfig {
     let Ok(raw) = fs::read_to_string(path) else {
         return SkillManagerConfig {
             skill_directories: None,
+            disabled_scan_directories: None,
             source_icons: None,
             primary_skill_repository: None,
         };
@@ -718,6 +750,7 @@ fn read_skill_manager_config() -> SkillManagerConfig {
     let Ok(config) = serde_json::from_str::<SkillManagerConfig>(&raw) else {
         return SkillManagerConfig {
             skill_directories: None,
+            disabled_scan_directories: None,
             source_icons: None,
             primary_skill_repository: None,
         };
@@ -768,10 +801,19 @@ fn read_user_configured_directories() -> Vec<String> {
         .collect()
 }
 
+fn read_disabled_scan_directories() -> Vec<String> {
+    let config = read_skill_manager_config();
+    normalize_configured_directories(config.disabled_scan_directories.unwrap_or_default())
+}
+
 fn read_configured_directories() -> Vec<String> {
-    let mut directories = read_user_configured_directories();
-    directories.extend(enabled_built_in_directories());
-    normalize_configured_directories(directories)
+    let user_configured_directories = read_user_configured_directories();
+    let disabled_scan_directories = read_disabled_scan_directories();
+    scan_directories_from_states(
+        user_configured_directories,
+        built_in_directory_states(&disabled_scan_directories),
+        disabled_scan_directories,
+    )
 }
 
 fn normalize_source_icons(
@@ -802,11 +844,17 @@ fn write_skill_manager_config(
     source_icons: HashMap<String, SourceIcon>,
 ) -> Result<(), String> {
     let primary = read_primary_skill_repository();
-    write_skill_manager_config_inner(skill_directories, source_icons, primary)
+    write_skill_manager_config_inner(
+        skill_directories,
+        read_disabled_scan_directories(),
+        source_icons,
+        primary,
+    )
 }
 
 fn write_skill_manager_config_inner(
     skill_directories: Vec<String>,
+    disabled_scan_directories: Vec<String>,
     source_icons: HashMap<String, SourceIcon>,
     primary_skill_repository: String,
 ) -> Result<(), String> {
@@ -818,6 +866,7 @@ fn write_skill_manager_config_inner(
 
     let payload = serde_json::json!({
         "skillDirectories": skill_directories,
+        "disabledScanDirectories": disabled_scan_directories,
         "sourceIcons": source_icons,
         "primarySkillRepository": primary_skill_repository,
     });
@@ -829,8 +878,50 @@ fn write_configured_directories(directories: Vec<String>) -> Result<(), String> 
     let normalized = normalize_configured_directories(directories)
         .into_iter()
         .filter(|directory| !is_built_in_directory(directory))
+        .collect::<Vec<_>>();
+    let existing_directories = normalized
+        .iter()
+        .cloned()
+        .chain(
+            built_in_skill_directories()
+                .into_iter()
+                .map(|directory| directory.path.to_string_lossy().to_string()),
+        )
+        .collect::<HashSet<_>>();
+    let disabled_scan_directories = read_disabled_scan_directories()
+        .into_iter()
+        .filter(|directory| existing_directories.contains(directory))
         .collect();
-    write_skill_manager_config(normalized, read_source_icons())
+
+    write_skill_manager_config_inner(
+        normalized,
+        disabled_scan_directories,
+        read_source_icons(),
+        read_primary_skill_repository(),
+    )
+}
+
+fn write_scan_directory_enabled(directory: String, enabled: bool) -> Result<(), String> {
+    let normalized_directories = normalize_configured_directories(vec![directory]);
+    let Some(normalized_directory) = normalized_directories.first() else {
+        return Err("目录不能为空。".to_string());
+    };
+    let mut disabled_scan_directories = read_disabled_scan_directories()
+        .into_iter()
+        .collect::<HashSet<_>>();
+
+    if enabled {
+        disabled_scan_directories.remove(normalized_directory);
+    } else {
+        disabled_scan_directories.insert(normalized_directory.clone());
+    }
+
+    write_skill_manager_config_inner(
+        read_user_configured_directories(),
+        normalize_configured_directories(disabled_scan_directories.into_iter().collect()),
+        read_source_icons(),
+        read_primary_skill_repository(),
+    )
 }
 
 fn write_source_icon(directory: String, icon: Option<SourceIcon>) -> Result<(), String> {
@@ -1197,15 +1288,18 @@ fn create_directory_symlink(target_directory: &Path, link_directory: &Path) -> R
 }
 
 fn ensure_target_source_directory(target_source_directory: &Path) -> Result<(), String> {
-    let normalized_targets = normalize_configured_directories(vec![
-        target_source_directory.to_string_lossy().to_string(),
-    ]);
+    let normalized_targets = normalize_configured_directories(vec![target_source_directory
+        .to_string_lossy()
+        .to_string()]);
     let Some(normalized_target) = normalized_targets.first() else {
         return Err("目标 Agent 目录不能为空。".to_string());
     };
 
     let share_targets = read_share_target_directories();
-    if !share_targets.iter().any(|directory| directory == normalized_target) {
+    if !share_targets
+        .iter()
+        .any(|directory| directory == normalized_target)
+    {
         return Err("只能分享到当前已安装或已配置的 Agent 目录。".to_string());
     }
 
@@ -1488,10 +1582,11 @@ fn value_string(metadata: &Map<String, Value>, key: &str) -> Option<String> {
 #[tauri::command]
 fn load_skill_manager_state() -> SkillManagerState {
     let user_configured_directories = read_user_configured_directories();
-    let built_in_directories = built_in_directory_states();
+    let disabled_scan_directories = read_disabled_scan_directories();
+    let built_in_directories = built_in_directory_states(&disabled_scan_directories);
     let configured_directories = read_configured_directories();
     let share_target_directories = share_target_directories_from_states(
-        configured_directories.clone(),
+        user_configured_directories.clone(),
         built_in_directories.clone(),
     );
     let source_icons = read_source_icons();
@@ -1580,6 +1675,7 @@ fn load_skill_manager_state() -> SkillManagerState {
         configured_directories,
         share_target_directories,
         user_configured_directories,
+        disabled_scan_directories,
         built_in_directories,
         discovered_directories,
         source_icons,
@@ -1594,6 +1690,7 @@ fn save_primary_skill_repository(path: String) -> Result<SkillManagerState, Stri
     let normalized = normalize_primary_skill_repository(&path)?;
     write_skill_manager_config_inner(
         read_user_configured_directories(),
+        read_disabled_scan_directories(),
         read_source_icons(),
         normalized,
     )?;
@@ -1603,6 +1700,15 @@ fn save_primary_skill_repository(path: String) -> Result<SkillManagerState, Stri
 #[tauri::command]
 fn save_configured_directories(directories: Vec<String>) -> Result<SkillManagerState, String> {
     write_configured_directories(directories)?;
+    Ok(load_skill_manager_state())
+}
+
+#[tauri::command]
+fn save_scan_directory_enabled(
+    directory: String,
+    enabled: bool,
+) -> Result<SkillManagerState, String> {
+    write_scan_directory_enabled(directory, enabled)?;
     Ok(load_skill_manager_state())
 }
 
@@ -1871,7 +1977,9 @@ fn macos_show_main_if_needed<R: tauri::Runtime>(
 
 #[cfg(test)]
 mod tests {
-    use super::{share_target_directories_from_states, BuiltInDirectoryState};
+    use super::{
+        scan_directories_from_states, share_target_directories_from_states, BuiltInDirectoryState,
+    };
 
     #[test]
     fn installed_builtin_directory_without_existing_folder_is_share_target() {
@@ -1892,6 +2000,31 @@ mod tests {
             vec![
                 "/Users/alice/.codex/skills".to_string(),
                 "/Users/alice/.claude/skills".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn disabled_user_directory_is_not_scanned_but_remains_share_target() {
+        let user_directories = vec![
+            "/Users/alice/.agents/skills".to_string(),
+            "/Users/alice/custom/skills".to_string(),
+        ];
+        let disabled_directories = vec!["/Users/alice/custom/skills".to_string()];
+
+        let scan_directories =
+            scan_directories_from_states(user_directories.clone(), vec![], disabled_directories);
+        let share_targets = share_target_directories_from_states(user_directories, vec![]);
+
+        assert_eq!(
+            scan_directories,
+            vec!["/Users/alice/.agents/skills".to_string()]
+        );
+        assert_eq!(
+            share_targets,
+            vec![
+                "/Users/alice/.agents/skills".to_string(),
+                "/Users/alice/custom/skills".to_string(),
             ]
         );
     }
@@ -1919,6 +2052,7 @@ pub fn run() {
             load_skill_manager_state,
             save_primary_skill_repository,
             save_configured_directories,
+            save_scan_directory_enabled,
             save_source_icon,
             open_skill_directory,
             remove_skill_source,

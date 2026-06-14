@@ -68,6 +68,7 @@ type SkillManagerState = {
   configuredDirectories: string[]
   shareTargetDirectories: string[]
   userConfiguredDirectories: string[]
+  disabledScanDirectories: string[]
   builtInDirectories: BuiltInDirectoryState[]
   discoveredDirectories: string[]
   sourceIcons: Record<string, SourceIcon>
@@ -78,6 +79,7 @@ type SkillManagerState = {
 
 type SkillManagerConfig = {
   skillDirectories?: unknown
+  disabledScanDirectories?: unknown
   sourceIcons?: unknown
   primarySkillRepository?: unknown
 }
@@ -93,7 +95,7 @@ type BuiltInSkillDirectory = {
 const STATIC_BUILT_IN_SKILL_DIRECTORIES = [
   { path: resolve(homedir(), '.agents/skills'), agentId: 'agents', agentName: 'Agents', commands: [], appNames: [] },
   { path: resolve(homedir(), '.codex/skills'), agentId: 'codex', agentName: 'Codex', commands: ['codex'], appNames: ['Codex'] },
-  { path: resolve(homedir(), '.claude/skills'), agentId: 'claude', agentName: 'Claude', commands: ['claude'], appNames: ['Claude'] },
+  { path: resolve(homedir(), '.claude/skills'), agentId: 'claude', agentName: 'Claude Code', commands: ['claude'], appNames: ['Claude'] },
   { path: resolve(homedir(), '.cursor/skills'), agentId: 'cursor', agentName: 'Cursor', commands: ['cursor'], appNames: ['Cursor'] },
   { path: resolve(homedir(), '.config/opencode/skills'), agentId: 'opencode', agentName: 'OpenCode', commands: ['opencode'], appNames: [] },
   { path: resolve(homedir(), '.gemini/antigravity/skills'), agentId: 'antigravity', agentName: 'Antigravity', commands: ['antigravity'], appNames: ['Antigravity', 'Google Antigravity'] },
@@ -346,7 +348,18 @@ function isBuiltInAgentInstalled(directory: BuiltInSkillDirectory) {
   return directory.commands.some(commandExists) || directory.appNames.some(appExists)
 }
 
-function getBuiltInDirectoryStates(): BuiltInDirectoryState[] {
+function readDisabledScanDirectories() {
+  const config = readSkillManagerConfig()
+  const disabledDirectories = Array.isArray(config.disabledScanDirectories)
+    ? config.disabledScanDirectories.filter((directory): directory is string => typeof directory === 'string')
+    : []
+
+  return normalizeConfiguredDirectories(disabledDirectories)
+}
+
+function getBuiltInDirectoryStates(disabledScanDirectories = readDisabledScanDirectories()): BuiltInDirectoryState[] {
+  const disabledSet = new Set(disabledScanDirectories)
+
   return builtInSkillDirectories()
     .map((directory) => {
       let directoryExists = false
@@ -364,7 +377,7 @@ function getBuiltInDirectoryStates(): BuiltInDirectoryState[] {
         directory: directory.path,
         installed,
         directoryExists,
-        scanEnabled: installed && directoryExists,
+        scanEnabled: installed && directoryExists && !disabledSet.has(directory.path),
       }
     })
 }
@@ -382,10 +395,19 @@ function readSkillManagerConfig(): SkillManagerConfig {
   }
 }
 
-function enabledBuiltInDirectories() {
-  return getBuiltInDirectoryStates()
-    .filter((directory) => directory.scanEnabled)
-    .map((directory) => directory.directory)
+function scanDirectoriesFromStates(
+  userConfiguredDirectories: string[],
+  builtInDirectories: BuiltInDirectoryState[],
+  disabledScanDirectories: string[]
+) {
+  const disabledSet = new Set(disabledScanDirectories)
+
+  return normalizeConfiguredDirectories([
+    ...userConfiguredDirectories.filter((directory) => !disabledSet.has(directory)),
+    ...builtInDirectories
+      .filter((directory) => directory.scanEnabled)
+      .map((directory) => directory.directory),
+  ])
 }
 
 function shareTargetDirectoriesFromStates(
@@ -401,7 +423,11 @@ function shareTargetDirectoriesFromStates(
 }
 
 function readShareTargetDirectories() {
-  return shareTargetDirectoriesFromStates(readConfiguredDirectories(), getBuiltInDirectoryStates())
+  const disabledScanDirectories = readDisabledScanDirectories()
+  return shareTargetDirectoriesFromStates(
+    readUserConfiguredDirectories(),
+    getBuiltInDirectoryStates(disabledScanDirectories)
+  )
 }
 
 function readUserConfiguredDirectories() {
@@ -414,7 +440,12 @@ function readUserConfiguredDirectories() {
 }
 
 function readConfiguredDirectories() {
-  return normalizeConfiguredDirectories([...readUserConfiguredDirectories(), ...enabledBuiltInDirectories()])
+  const disabledScanDirectories = readDisabledScanDirectories()
+  return scanDirectoriesFromStates(
+    readUserConfiguredDirectories(),
+    getBuiltInDirectoryStates(disabledScanDirectories),
+    disabledScanDirectories
+  )
 }
 
 function normalizeSourceIcons(sourceIcons: unknown) {
@@ -484,6 +515,7 @@ function normalizeSourceIconForDirectory(directory: string, icon: unknown) {
 
 function writeSkillManagerConfig(config: {
   skillDirectories: string[]
+  disabledScanDirectories: string[]
   sourceIcons: Record<string, SourceIcon>
   primarySkillRepository: string
 }) {
@@ -496,8 +528,36 @@ function writeSkillManagerConfig(config: {
 }
 
 function writeConfiguredDirectories(directories: string[]) {
+  const skillDirectories = normalizeConfiguredDirectories(directories).filter((directory) => !isBuiltInDirectory(directory))
+  const knownDirectories = new Set([
+    ...skillDirectories,
+    ...builtInSkillDirectories().map((directory) => directory.path),
+  ])
+
   writeSkillManagerConfig({
-    skillDirectories: normalizeConfiguredDirectories(directories).filter((directory) => !isBuiltInDirectory(directory)),
+    skillDirectories,
+    disabledScanDirectories: readDisabledScanDirectories().filter((directory) => knownDirectories.has(directory)),
+    sourceIcons: readSourceIcons(),
+    primarySkillRepository: readPrimarySkillRepository(),
+  })
+}
+
+function writeScanDirectoryEnabled(directory: string, enabled: boolean) {
+  const [normalizedDirectory] = normalizeConfiguredDirectories([directory])
+  if (!normalizedDirectory) {
+    throw new Error('directory is required')
+  }
+
+  const disabledSet = new Set(readDisabledScanDirectories())
+  if (enabled) {
+    disabledSet.delete(normalizedDirectory)
+  } else {
+    disabledSet.add(normalizedDirectory)
+  }
+
+  writeSkillManagerConfig({
+    skillDirectories: readUserConfiguredDirectories(),
+    disabledScanDirectories: normalizeConfiguredDirectories(Array.from(disabledSet)),
     sourceIcons: readSourceIcons(),
     primarySkillRepository: readPrimarySkillRepository(),
   })
@@ -518,6 +578,7 @@ function writeSourceIcon(directory: string, icon: SourceIcon | null) {
 
   writeSkillManagerConfig({
     skillDirectories: readUserConfiguredDirectories(),
+    disabledScanDirectories: readDisabledScanDirectories(),
     sourceIcons,
     primarySkillRepository: readPrimarySkillRepository(),
   })
@@ -527,6 +588,7 @@ function savePrimarySkillRepositoryForApi(path: string) {
   const normalized = normalizePrimarySkillRepositoryForSave(path)
   writeSkillManagerConfig({
     skillDirectories: readUserConfiguredDirectories(),
+    disabledScanDirectories: readDisabledScanDirectories(),
     sourceIcons: readSourceIcons(),
     primarySkillRepository: normalized,
   })
@@ -1080,7 +1142,8 @@ function stableContentHash(input: string) {
 
 function loadSkillManagerState(): SkillManagerState {
   const userConfiguredDirectories = readUserConfiguredDirectories()
-  const builtInDirectories = getBuiltInDirectoryStates()
+  const disabledScanDirectories = readDisabledScanDirectories()
+  const builtInDirectories = getBuiltInDirectoryStates(disabledScanDirectories)
   const configuredDirectories = readConfiguredDirectories()
   const sourceIcons = readSourceIcons()
   const ignoredDirectoryNames = new Set(['cache', 'logs', 'scenarios', '.skills-manager'])
@@ -1220,8 +1283,9 @@ function loadSkillManagerState(): SkillManagerState {
 
   return {
     configuredDirectories,
-    shareTargetDirectories: shareTargetDirectoriesFromStates(configuredDirectories, builtInDirectories),
+    shareTargetDirectories: shareTargetDirectoriesFromStates(userConfiguredDirectories, builtInDirectories),
     userConfiguredDirectories,
+    disabledScanDirectories,
     builtInDirectories,
     discoveredDirectories: Array.from(discoveredDirectories).sort((left, right) =>
       left.localeCompare(right, 'zh-CN')
@@ -1309,6 +1373,25 @@ function installSkillManagerApi(server: ViteDevServer) {
       } catch (error) {
         sendJson(res, 400, {
           error: error instanceof Error ? error.message : 'Failed to update directories',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/directories/scan-enabled` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { directory?: unknown; enabled?: unknown }
+        if (typeof body.directory !== 'string' || typeof body.enabled !== 'boolean') {
+          sendJson(res, 400, { error: 'directory and enabled are required' })
+          return
+        }
+
+        writeScanDirectoryEnabled(body.directory, body.enabled)
+        sendJson(res, 200, loadSkillManagerState())
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to update directory scan state',
         })
       }
 
@@ -1541,6 +1624,25 @@ function installSkillManagerPreviewApi(server: PreviewServer) {
       } catch (error) {
         sendJson(res, 400, {
           error: error instanceof Error ? error.message : 'Failed to update directories',
+        })
+      }
+
+      return
+    }
+
+    if (url === `${SKILL_MANAGER_API_BASE}/directories/scan-enabled` && req.method === 'POST') {
+      try {
+        const body = (await readRequestJson(req)) as { directory?: unknown; enabled?: unknown }
+        if (typeof body.directory !== 'string' || typeof body.enabled !== 'boolean') {
+          sendJson(res, 400, { error: 'directory and enabled are required' })
+          return
+        }
+
+        writeScanDirectoryEnabled(body.directory, body.enabled)
+        sendJson(res, 200, loadSkillManagerState())
+      } catch (error) {
+        sendJson(res, 400, {
+          error: error instanceof Error ? error.message : 'Failed to update directory scan state',
         })
       }
 

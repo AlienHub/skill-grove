@@ -7,33 +7,40 @@ import {
   readFileAsDataUrl,
 } from '../../skill-manager/fileSelection'
 import { useAppPreferences } from '../../skill-manager/preferences'
+import { directoryScanEnabled } from '../../skill-manager/scanDirectories'
 import { type BuiltInDirectoryState, type SourceIcon } from '../../skill-manager/types'
 import { Ripple } from '../ui/Ripple'
 
 export function SkillDirectoryConfig({
   builtInDirectories,
   configuredDirectories,
+  disabledScanDirectories,
   skillCount,
   sourceIcons,
   userConfiguredDirectories,
   inputDisabled,
+  pendingScanDirectory,
   feedbackMessage,
   onRemoveDirectory,
   onRefresh,
   onSaveSourceIcon,
+  onSetDirectoryScanEnabled,
   onSelectDirectory,
   onSetFeedbackMessage,
 }: {
   builtInDirectories: BuiltInDirectoryState[]
   configuredDirectories: string[]
+  disabledScanDirectories: string[]
   skillCount: number
   sourceIcons: Record<string, SourceIcon>
   userConfiguredDirectories: string[]
   inputDisabled: boolean
+  pendingScanDirectory: string | null
   feedbackMessage: string | null
   onRemoveDirectory: (directory: string) => void
   onRefresh: () => void
   onSaveSourceIcon: (directory: string, icon: SourceIcon | null) => void
+  onSetDirectoryScanEnabled: (directory: string, enabled: boolean) => void
   onSelectDirectory: (directory: string) => void
   onSetFeedbackMessage: (message: string) => void
 }) {
@@ -46,6 +53,29 @@ export function SkillDirectoryConfig({
   const chooseButtonLabel = inputDisabled ? t('directories.processing') : t('directories.chooseFolder')
   const installedBuiltInDirectories = builtInDirectories.filter((directory) => directory.installed)
   const unavailableBuiltInDirectories = builtInDirectories.filter((directory) => !directory.installed)
+
+  const renderScanToggle = (directory: string, enabled: boolean, disabled = false) => (
+    <button
+      aria-checked={enabled}
+      aria-label={enabled ? t('directories.disableScan') : t('directories.enableScan')}
+      className={`inline-flex h-6 w-11 cursor-pointer items-center rounded-full border p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+        enabled
+          ? 'justify-end border-foreground/12 bg-foreground/64 hover:bg-foreground/72'
+          : 'justify-start border-border/55 bg-foreground/6 hover:bg-foreground/10'
+      }`}
+      disabled={inputDisabled || disabled || pendingScanDirectory === directory}
+      onClick={() => onSetDirectoryScanEnabled(directory, !enabled)}
+      role="switch"
+      title={enabled ? t('directories.disableScan') : t('directories.enableScan')}
+      type="button"
+    >
+      <span
+        className={`size-4 rounded-full shadow-minimal-flat transition-colors ${
+          enabled ? 'bg-[var(--surface)]' : 'bg-foreground/34'
+        }`}
+      />
+    </button>
+  )
 
   const handleChooseDirectory = () => {
     void open({
@@ -185,10 +215,13 @@ export function SkillDirectoryConfig({
                   const agentInfo = getAgentInfoFromDirectory(directory)
                   const agentName = displayAgentName(agentInfo.agentId, agentInfo.agentName, t)
                   const sourceIcon = sourceIcons[directory]
+                  const scanEnabled = directoryScanEnabled(directory, disabledScanDirectories)
 
                   return (
                     <div
-                      className="flex items-center gap-3 rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 shadow-minimal-flat"
+                      className={`flex items-center gap-3 rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 shadow-minimal-flat ${
+                        scanEnabled ? '' : 'text-foreground/55'
+                      }`}
                       key={directory}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -206,6 +239,7 @@ export function SkillDirectoryConfig({
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
+                        {renderScanToggle(directory, scanEnabled)}
                         <button
                           className="cursor-pointer text-[12px] text-foreground/45 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:text-foreground/30"
                           disabled={inputDisabled}
@@ -257,7 +291,9 @@ export function SkillDirectoryConfig({
 
                   return (
                     <div
-                      className="flex items-center gap-3 rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 shadow-minimal-flat"
+                      className={`flex items-center gap-3 rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 shadow-minimal-flat ${
+                        directory.scanEnabled ? '' : 'text-foreground/55'
+                      }`}
                       key={directory.directory}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -275,6 +311,7 @@ export function SkillDirectoryConfig({
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
+                        {renderScanToggle(directory.directory, directory.scanEnabled, !directory.directoryExists)}
                         <button
                           className="cursor-pointer text-[12px] text-foreground/45 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:text-foreground/30"
                           disabled={inputDisabled || !directory.scanEnabled}

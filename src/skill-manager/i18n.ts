@@ -197,6 +197,11 @@ const translations = {
     'directories.iconUpdated': '来源图标已更新。',
     'directories.iconReset': '来源图标已重置。',
     'directories.iconUpdateFailed': '来源图标更新失败，请稍后重试。',
+    'directories.scanOn': '扫描',
+    'directories.scanOff': '暂停',
+    'directories.enableScan': '开启扫描',
+    'directories.disableScan': '关闭扫描',
+    'directories.scanToggleFailed': '扫描开关更新失败，请稍后重试。',
 
     'detail.noDescription': '暂无描述。',
     'detail.sources': '来源',
@@ -491,6 +496,11 @@ const translations = {
     'directories.iconUpdated': 'Source icon updated.',
     'directories.iconReset': 'Source icon reset.',
     'directories.iconUpdateFailed': 'Could not update the source icon. Try again later.',
+    'directories.scanOn': 'Scan',
+    'directories.scanOff': 'Paused',
+    'directories.enableScan': 'Enable scan',
+    'directories.disableScan': 'Disable scan',
+    'directories.scanToggleFailed': 'Could not update the scan switch. Try again later.',
 
     'detail.noDescription': 'No description yet.',
     'detail.sources': 'Sources',

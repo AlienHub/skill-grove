@@ -5,29 +5,35 @@ import { SkillDirectoryConfig } from './SkillDirectoryConfig'
 export function AgentSkillConfigPanel({
   builtInDirectories,
   configuredDirectories,
+  disabledScanDirectories,
   feedbackMessage,
   hasTitlebarInset,
   inputDisabled,
+  pendingScanDirectory,
   sourceIcons,
   skillCount,
   userConfiguredDirectories,
   onRefresh,
   onRemoveDirectory,
   onSaveSourceIcon,
+  onSetDirectoryScanEnabled,
   onSetFeedbackMessage,
   onSelectDirectory,
 }: {
   builtInDirectories: BuiltInDirectoryState[]
   configuredDirectories: string[]
+  disabledScanDirectories: string[]
   feedbackMessage: string | null
   hasTitlebarInset: boolean
   inputDisabled: boolean
+  pendingScanDirectory: string | null
   sourceIcons: Record<string, SourceIcon>
   skillCount: number
   userConfiguredDirectories: string[]
   onRefresh: () => void
   onRemoveDirectory: (directory: string) => void
   onSaveSourceIcon: (directory: string, icon: SourceIcon | null) => void
+  onSetDirectoryScanEnabled: (directory: string, enabled: boolean) => void
   onSetFeedbackMessage: (message: string) => void
   onSelectDirectory: (directory: string) => void
 }) {
@@ -55,14 +61,17 @@ export function AgentSkillConfigPanel({
       <SkillDirectoryConfig
         builtInDirectories={builtInDirectories}
         configuredDirectories={configuredDirectories}
+        disabledScanDirectories={disabledScanDirectories}
         feedbackMessage={feedbackMessage}
         inputDisabled={inputDisabled}
+        pendingScanDirectory={pendingScanDirectory}
         sourceIcons={sourceIcons}
         skillCount={skillCount}
         userConfiguredDirectories={userConfiguredDirectories}
         onRefresh={onRefresh}
         onRemoveDirectory={onRemoveDirectory}
         onSaveSourceIcon={onSaveSourceIcon}
+        onSetDirectoryScanEnabled={onSetDirectoryScanEnabled}
         onSetFeedbackMessage={onSetFeedbackMessage}
         onSelectDirectory={onSelectDirectory}
       />

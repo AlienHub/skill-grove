@@ -19,6 +19,7 @@ import {
   exportSkillZip,
   saveConfiguredDirectories,
   savePrimarySkillRepository,
+  saveScanDirectoryEnabled,
   saveSourceIcon,
   convertSkillSourceToSymlink,
   migrateSkillToPrimaryRepository,
@@ -39,6 +40,7 @@ import {
 } from '../skill-manager/libraryInsights'
 import { resolvedSkillDirectoriesForStartupScan } from '../skill-manager/startupScan'
 import { buildAgentCatalogProfiles } from '../skill-manager/catalogProfiles'
+import { optimisticScanDirectoryState } from '../skill-manager/scanDirectories'
 import {
   type AgentCatalogProfile,
   type Skill,
@@ -119,6 +121,7 @@ export function SkillManagerPage() {
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null)
   const [isPrimaryNavCollapsed, setIsPrimaryNavCollapsed] = useState(false)
   const [isSavingDirectories, setIsSavingDirectories] = useState(false)
+  const [pendingScanDirectory, setPendingScanDirectory] = useState<string | null>(null)
   const [directoryFeedbackMessage, setDirectoryFeedbackMessage] = useState<string | null>(null)
   const [skillSearchQuery, setSkillSearchQuery] = useState('')
   const [activeLibraryFilter, setActiveLibraryFilter] = useState<LibraryFilter>('all')
@@ -486,6 +489,23 @@ export function SkillManagerPage() {
     await updateDirectories([...skillState.userConfiguredDirectories, directory])
   }
 
+  const handleSetDirectoryScanEnabled = async (directory: string, enabled: boolean) => {
+    const previousState = skillState
+    setPendingScanDirectory(directory)
+    setDirectoryFeedbackMessage(null)
+    setSkillState((currentState) => optimisticScanDirectoryState(currentState, directory, enabled))
+
+    try {
+      const nextState = await saveScanDirectoryEnabled(directory, enabled)
+      setSkillState(nextState)
+    } catch (error) {
+      setSkillState(previousState)
+      setDirectoryFeedbackMessage(error instanceof Error ? error.message : t('directories.scanToggleFailed'))
+    } finally {
+      setPendingScanDirectory(null)
+    }
+  }
+
   const handleSaveSourceIcon = (directory: string, icon: SourceIcon | null) => {
     setIsSavingDirectories(true)
     setDirectoryFeedbackMessage(icon ? t('directories.updatingIcon') : t('directories.resettingIcon'))
@@ -673,15 +693,18 @@ export function SkillManagerPage() {
             <AgentSkillConfigPanel
               builtInDirectories={skillState.builtInDirectories}
               configuredDirectories={skillState.configuredDirectories}
+              disabledScanDirectories={skillState.disabledScanDirectories}
               feedbackMessage={directoryFeedbackMessage}
               hasTitlebarInset={isTauriWindow}
               inputDisabled={isSavingDirectories}
+              pendingScanDirectory={pendingScanDirectory}
               sourceIcons={skillState.sourceIcons}
               skillCount={skillGroups.length}
               userConfiguredDirectories={skillState.userConfiguredDirectories}
               onRefresh={handleRefresh}
               onRemoveDirectory={handleRemoveDirectory}
               onSaveSourceIcon={handleSaveSourceIcon}
+              onSetDirectoryScanEnabled={handleSetDirectoryScanEnabled}
               onSetFeedbackMessage={setDirectoryFeedbackMessage}
               onSelectDirectory={handleChooseDirectory}
             />
