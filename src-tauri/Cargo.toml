@@ -1,6 +1,6 @@
 [package]
 name = "skill-grove"
-version = "0.6.3"
+version = "0.6.4"
 description = "Standalone Skill Manager app"
 authors = ["Skill Grove"]
 edition = "2021"

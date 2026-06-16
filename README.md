@@ -193,7 +193,7 @@ mkdir -p /tmp/skill-grove-dmg
 cp -R "src-tauri/target/release/bundle/macos/Skill Grove.app" /tmp/skill-grove-dmg/
 ln -s /Applications /tmp/skill-grove-dmg/Applications
 hdiutil create -volname "Skill Grove" -srcfolder /tmp/skill-grove-dmg -ov -format UDZO \
-  "src-tauri/target/release/bundle/dmg/Skill Grove_0.6.3_aarch64.dmg"
+  "src-tauri/target/release/bundle/dmg/Skill Grove_0.6.4_aarch64.dmg"
 ```
 
 ## Skill Directory Discovery
