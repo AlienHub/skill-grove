@@ -1,7 +1,8 @@
+use super::{count_skill_usage, event_day, DailyUsageCounts, UsageCounts};
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fs::{self, File},
     io::{BufRead, BufReader},
     path::{Path, PathBuf},
@@ -185,7 +186,8 @@ fn count_craft_skill_loads(
     value: &Value,
     allowed_longest_first: &[String],
     workspace_roots: &[PathBuf],
-    counts: &mut HashMap<String, u64>,
+    counts: &mut UsageCounts,
+    daily_counts: &mut DailyUsageCounts,
 ) {
     if value.get("type").and_then(Value::as_str) != Some("tool") {
         return;
@@ -195,6 +197,7 @@ fn count_craft_skill_loads(
         return;
     };
 
+    let day = event_day(value);
     if tool_name.eq_ignore_ascii_case("Read") {
         let Some(read_path) = read_path_from_tool(value) else {
             return;
@@ -208,7 +211,7 @@ fn count_craft_skill_loads(
             .iter()
             .find(|path| **path == normalized)
         {
-            *counts.entry(hit.clone()).or_default() += 1;
+            count_skill_usage(counts, daily_counts, hit.clone(), day);
         }
         return;
     }
@@ -218,7 +221,7 @@ fn count_craft_skill_loads(
             return;
         };
         for hit in command_hits_allowed_skill(command, allowed_longest_first) {
-            *counts.entry(hit).or_default() += 1;
+            count_skill_usage(counts, daily_counts, hit, day.clone());
         }
     }
 }
@@ -227,7 +230,8 @@ fn scan_one_craft_session_jsonl(
     path: &Path,
     allowed_longest_first: &[String],
     workspace_roots: &[PathBuf],
-    counts: &mut HashMap<String, u64>,
+    counts: &mut UsageCounts,
+    daily_counts: &mut DailyUsageCounts,
 ) -> Result<(), std::io::Error> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -235,7 +239,13 @@ fn scan_one_craft_session_jsonl(
     for line in reader.lines() {
         let line = line?;
         if let Ok(value) = serde_json::from_str::<Value>(&line) {
-            count_craft_skill_loads(&value, allowed_longest_first, workspace_roots, counts);
+            count_craft_skill_loads(
+                &value,
+                allowed_longest_first,
+                workspace_roots,
+                counts,
+                daily_counts,
+            );
         }
     }
 
@@ -273,7 +283,8 @@ fn extract_prerequisite_path(message: &str) -> Option<&str> {
 fn scan_craft_main_log_fallback(
     allowed_longest_first: &[String],
     workspace_roots: &[PathBuf],
-    counts: &mut HashMap<String, u64>,
+    counts: &mut UsageCounts,
+    daily_counts: &mut DailyUsageCounts,
 ) -> Result<bool, std::io::Error> {
     let path = home_dir()
         .join("Library")
@@ -302,12 +313,13 @@ fn scan_craft_main_log_fallback(
             continue;
         }
 
+        let day = event_day(&value);
         let normalized = normalize_craft_path(read_path, workspace_roots);
         if let Some(hit) = allowed_longest_first
             .iter()
             .find(|path| **path == normalized)
         {
-            *counts.entry(hit.clone()).or_default() += 1;
+            count_skill_usage(counts, daily_counts, hit.clone(), day);
         }
     }
 
@@ -316,16 +328,16 @@ fn scan_craft_main_log_fallback(
 
 pub fn scan_craft_agents_session_jsonl(
     allowed_longest_first: &[String],
-) -> (HashMap<String, u64>, Vec<String>) {
+) -> (UsageCounts, DailyUsageCounts, Vec<String>) {
     let mut notes = Vec::new();
     if allowed_longest_first.is_empty() {
-        return (HashMap::new(), notes);
+        return (UsageCounts::new(), DailyUsageCounts::new(), notes);
     }
 
     let workspace_roots = read_workspace_roots();
     if workspace_roots.is_empty() {
         notes.push("Craft Agents: ~/.craft-agent/config.json has no local workspaces".to_string());
-        return (HashMap::new(), notes);
+        return (UsageCounts::new(), DailyUsageCounts::new(), notes);
     }
 
     let mut files = Vec::new();
@@ -335,9 +347,15 @@ pub fn scan_craft_agents_session_jsonl(
     files.sort();
     files.dedup();
 
-    let mut counts = HashMap::new();
+    let mut counts = UsageCounts::new();
+    let mut daily_counts = DailyUsageCounts::new();
     if files.is_empty() {
-        match scan_craft_main_log_fallback(allowed_longest_first, &workspace_roots, &mut counts) {
+        match scan_craft_main_log_fallback(
+            allowed_longest_first,
+            &workspace_roots,
+            &mut counts,
+            &mut daily_counts,
+        ) {
             Ok(true) => notes.push(
                 "Craft Agents: scanned main.log fallback, counted prerequisite SKILL.md reads only"
                     .to_string(),
@@ -345,14 +363,18 @@ pub fn scan_craft_agents_session_jsonl(
             Ok(false) => notes.push("Craft Agents: no session.jsonl transcripts".to_string()),
             Err(e) => notes.push(format!("Craft Agents: main.log fallback failed ({e})")),
         }
-        return (counts, notes);
+        return (counts, daily_counts, notes);
     }
 
     let mut failures = 0usize;
     for path in &files {
-        if let Err(e) =
-            scan_one_craft_session_jsonl(path, allowed_longest_first, &workspace_roots, &mut counts)
-        {
+        if let Err(e) = scan_one_craft_session_jsonl(
+            path,
+            allowed_longest_first,
+            &workspace_roots,
+            &mut counts,
+            &mut daily_counts,
+        ) {
             failures += 1;
             notes.push(format!("{} ({e})", path.display()));
         }
@@ -365,7 +387,7 @@ pub fn scan_craft_agents_session_jsonl(
         ));
     }
 
-    (counts, notes)
+    (counts, daily_counts, notes)
 }
 
 #[cfg(test)]
@@ -382,9 +404,10 @@ mod tests {
                 "file_path": "./Users/alice/.agents/skills/dws/SKILL.md"
             }
         });
-        let mut counts = HashMap::new();
+        let mut counts = UsageCounts::new();
+        let mut daily_counts = DailyUsageCounts::new();
 
-        count_craft_skill_loads(&value, &allowed, &[], &mut counts);
+        count_craft_skill_loads(&value, &allowed, &[], &mut counts, &mut daily_counts);
 
         assert_eq!(counts.get(&allowed[0]), Some(&1));
     }
@@ -399,9 +422,10 @@ mod tests {
                 "file_path": "./Users/alice/.agents/skills/dws/SKILL.md"
             }
         });
-        let mut counts = HashMap::new();
+        let mut counts = UsageCounts::new();
+        let mut daily_counts = DailyUsageCounts::new();
 
-        count_craft_skill_loads(&value, &allowed, &[], &mut counts);
+        count_craft_skill_loads(&value, &allowed, &[], &mut counts, &mut daily_counts);
 
         assert!(counts.is_empty());
     }

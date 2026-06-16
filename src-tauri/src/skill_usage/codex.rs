@@ -1,6 +1,6 @@
+use super::{count_skill_usage, event_day, DailyUsageCounts, UsageCounts};
 use serde_json::Value;
 use std::{
-    collections::HashMap,
     fs::{self, File},
     io::{BufRead, BufReader},
     path::{Path, PathBuf},
@@ -150,9 +150,11 @@ fn extract_skill_context_paths(text: &str) -> Vec<&str> {
 fn count_injected_skill_contexts(
     value: &Value,
     allowed_longest_first: &[String],
-    counts: &mut HashMap<String, u64>,
+    counts: &mut UsageCounts,
+    daily_counts: &mut DailyUsageCounts,
 ) {
     let mut counted = std::collections::HashSet::new();
+    let day = event_day(value);
 
     for text in message_input_texts(value) {
         for path in extract_skill_context_paths(text) {
@@ -164,7 +166,7 @@ fn count_injected_skill_contexts(
                 .iter()
                 .find(|allowed| **allowed == normalized)
             {
-                *counts.entry(hit.clone()).or_default() += 1;
+                count_skill_usage(counts, daily_counts, hit.clone(), day.clone());
             }
         }
     }
@@ -173,7 +175,8 @@ fn count_injected_skill_contexts(
 fn scan_one_codex_jsonl(
     path: &Path,
     allowed_longest_first: &[String],
-    counts: &mut HashMap<String, u64>,
+    counts: &mut UsageCounts,
+    daily_counts: &mut DailyUsageCounts,
 ) -> Result<(), std::io::Error> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -181,10 +184,11 @@ fn scan_one_codex_jsonl(
     for line in reader.lines() {
         let line = line?;
         if let Ok(value) = serde_json::from_str::<Value>(&line) {
-            count_injected_skill_contexts(&value, allowed_longest_first, counts);
+            count_injected_skill_contexts(&value, allowed_longest_first, counts, daily_counts);
             if let Some(cmd) = exec_command_from_call(&value) {
+                let day = event_day(&value);
                 for hit in command_hits_allowed_skill(&cmd, allowed_longest_first) {
-                    *counts.entry(hit).or_default() += 1;
+                    count_skill_usage(counts, daily_counts, hit, day.clone());
                 }
             }
         }
@@ -195,10 +199,10 @@ fn scan_one_codex_jsonl(
 
 pub fn scan_codex_session_jsonl(
     allowed_longest_first: &[String],
-) -> (HashMap<String, u64>, Vec<String>) {
+) -> (UsageCounts, DailyUsageCounts, Vec<String>) {
     let mut notes = Vec::new();
     if allowed_longest_first.is_empty() {
-        return (HashMap::new(), notes);
+        return (UsageCounts::new(), DailyUsageCounts::new(), notes);
     }
 
     let codex_home = codex_home_dir();
@@ -213,13 +217,16 @@ pub fn scan_codex_session_jsonl(
 
     if files.is_empty() {
         notes.push("Codex: no session .jsonl transcripts".to_string());
-        return (HashMap::new(), notes);
+        return (UsageCounts::new(), DailyUsageCounts::new(), notes);
     }
 
-    let mut counts = HashMap::new();
+    let mut counts = UsageCounts::new();
+    let mut daily_counts = DailyUsageCounts::new();
     let mut failures = 0usize;
     for path in &files {
-        if let Err(e) = scan_one_codex_jsonl(path, allowed_longest_first, &mut counts) {
+        if let Err(e) =
+            scan_one_codex_jsonl(path, allowed_longest_first, &mut counts, &mut daily_counts)
+        {
             failures += 1;
             notes.push(format!("{} ({e})", path.display()));
         }
@@ -232,7 +239,7 @@ pub fn scan_codex_session_jsonl(
         ));
     }
 
-    (counts, notes)
+    (counts, daily_counts, notes)
 }
 
 #[cfg(test)]
@@ -267,9 +274,10 @@ mod tests {
                 }]
             }
         });
-        let mut counts = HashMap::new();
+        let mut counts = UsageCounts::new();
+        let mut daily_counts = DailyUsageCounts::new();
 
-        count_injected_skill_contexts(&value, &allowed, &mut counts);
+        count_injected_skill_contexts(&value, &allowed, &mut counts, &mut daily_counts);
 
         assert_eq!(counts.get(&allowed[0]), Some(&1));
     }

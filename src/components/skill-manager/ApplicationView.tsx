@@ -1,7 +1,8 @@
 import { AgentIcon } from '../../skill-manager/agentInfo'
 import { displayAgentName } from '../../skill-manager/display'
 import { useAppPreferences } from '../../skill-manager/preferences'
-import { type AgentCatalogProfile, type SkillGroup } from '../../skill-manager/types'
+import { dailySkillUsageForProfile, type DailySkillUsageSegment } from '../../skill-manager/skillUsageHelpers'
+import { type AgentCatalogProfile, type Skill, type SkillGroup, type SkillUsageSnapshot } from '../../skill-manager/types'
 
 function formatTokenEstimate(tokens: number) {
   if (tokens >= 1000) {
@@ -13,6 +14,49 @@ function formatTokenEstimate(tokens: number) {
 
 function uniqueSourceCount(profile: AgentCatalogProfile) {
   return new Set(profile.skills.map((skill) => skill.sourcePath)).size
+}
+
+function formatDayLabel(date: string) {
+  return date.slice(5).replace('-', '/')
+}
+
+function segmentColorClass(index: number) {
+  const colors = [
+    'bg-[#8d7cff]',
+    'bg-[#25b7a5]',
+    'bg-[#f2a33a]',
+    'bg-[#e85d75]',
+    'bg-[#4f9cff]',
+    'bg-[#b6a05a]',
+    'bg-foreground/38',
+  ]
+
+  return colors[index % colors.length]
+}
+
+function topUsageSegments(bars: ReturnType<typeof dailySkillUsageForProfile>) {
+  const bySkill = new Map<string, DailySkillUsageSegment>()
+
+  for (const bar of bars) {
+    for (const segment of bar.segments) {
+      const current = bySkill.get(segment.skillId)
+      if (current) {
+        current.count += segment.count
+      } else {
+        bySkill.set(segment.skillId, { ...segment })
+      }
+    }
+  }
+
+  return Array.from(bySkill.values())
+    .sort((left, right) => {
+      if (left.count !== right.count) {
+        return right.count - left.count
+      }
+
+      return left.skillName.localeCompare(right.skillName, 'zh-CN')
+    })
+    .slice(0, 6)
 }
 
 export function ApplicationSidebar({
@@ -97,11 +141,15 @@ export function ApplicationSidebar({
 export function ApplicationDetailPanel({
   hasTitlebarInset,
   profile,
+  skillUsage,
+  skillsById,
   skillGroupsBySkillId,
   onSelectSkillGroup,
 }: {
   hasTitlebarInset: boolean
   profile: AgentCatalogProfile | null
+  skillUsage: SkillUsageSnapshot
+  skillsById: Map<string, Skill>
   skillGroupsBySkillId: Map<string, SkillGroup>
   onSelectSkillGroup: (group: SkillGroup) => void
 }) {
@@ -124,6 +172,9 @@ export function ApplicationDetailPanel({
   const sourceCount = uniqueSourceCount(profile)
   const visibleSkills = profile.skills.slice(0, 80)
   const confirmedSkillCount = profile.skills.filter((skill) => skill.catalogDisclosure === 'included').length
+  const usageBars = dailySkillUsageForProfile(profile, skillsById, skillUsage)
+  const maxDailyUsage = Math.max(1, ...usageBars.map((bar) => bar.total))
+  const topSegments = topUsageSegments(usageBars)
 
   return (
     <section
@@ -173,6 +224,77 @@ export function ApplicationDetailPanel({
             <StatusPill label={t('catalog.status.disabled')} value={profile.disabledSkillCount} />
             <StatusPill label={t('catalog.status.invalid')} value={profile.invalidSkillCount} />
           </div>
+        </section>
+
+        <section className="mt-8 border-t border-border/55 pt-5">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[12px] font-semibold text-foreground/60">{t('appView.usageTitle')}</h3>
+              <p className="mt-1 text-[11px] text-foreground/38">{t('appView.usageSubtitle')}</p>
+            </div>
+            <span className="shrink-0 text-[11px] text-foreground/34">
+              {skillUsage.lastScanAt ? t('detail.usageLastScan', { time: new Date(skillUsage.lastScanAt).toLocaleString() }) : t('detail.usageNoScan')}
+            </span>
+          </div>
+
+          {usageBars.length ? (
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+              <div className="rounded-[8px] bg-[var(--surface)] px-4 py-4 shadow-minimal-flat">
+                <div className="grid min-h-[180px] items-end gap-2" style={{ gridTemplateColumns: `repeat(${usageBars.length}, minmax(28px, 1fr))` }}>
+                  {usageBars.map((bar) => (
+                    <div className="flex min-w-0 flex-col items-center gap-2" key={bar.date}>
+                      <div className="flex h-[142px] w-full items-end">
+                        <div
+                          className="flex w-full flex-col-reverse overflow-hidden rounded-[6px] bg-foreground/6"
+                          style={{
+                            height: `${Math.max(8, (bar.total / maxDailyUsage) * 100)}%`,
+                          }}
+                          title={`${bar.date} · ${t('appView.usageTotal', { count: bar.total })}`}
+                        >
+                          {bar.segments.map((segment) => {
+                            const segmentName = segment.skillId.startsWith('other-')
+                              ? t('appView.usageOther')
+                              : segment.skillName
+
+                            return (
+                              <div
+                                className={segmentColorClass(segment.colorIndex)}
+                                key={segment.skillId}
+                                style={{ height: `${(segment.count / bar.total) * 100}%` }}
+                                title={`${segmentName} · ${t('appView.usageTotal', { count: segment.count })}`}
+                              />
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] tabular-nums text-foreground/42">{formatDayLabel(bar.date)}</p>
+                        <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-foreground/70">{bar.total}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[8px] bg-[var(--surface)] px-3 py-3 shadow-minimal-flat">
+                <div className="space-y-2">
+                  {topSegments.map((segment) => (
+                    <div className="flex items-center gap-2" key={segment.skillId}>
+                      <span className={`size-2 shrink-0 rounded-full ${segmentColorClass(segment.colorIndex)}`} />
+                      <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/62">
+                        {segment.skillId.startsWith('other-') ? t('appView.usageOther') : segment.skillName}
+                      </span>
+                      <span className="shrink-0 text-[11px] tabular-nums text-foreground/44">{segment.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[8px] bg-[var(--surface)] px-4 py-5 text-[12px] text-foreground/44 shadow-minimal-flat">
+              {t('appView.usageEmpty')}
+            </div>
+          )}
         </section>
 
         <section className="mt-8 border-t border-border/55 pt-5">

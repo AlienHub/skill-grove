@@ -1,4 +1,4 @@
-import type { Skill, SkillGroup } from './types'
+import type { AgentCatalogProfile, Skill, SkillGroup, SkillUsageSnapshot } from './types'
 
 function normalizeFsPath(p: string): string {
   return p.replace(/\\/g, '/').replace(/\/+$/, '')
@@ -76,6 +76,19 @@ export type SkillUsageAgentRow = {
   count: number
 }
 
+export type DailySkillUsageSegment = {
+  skillId: string
+  skillName: string
+  count: number
+  colorIndex: number
+}
+
+export type DailySkillUsageBar = {
+  date: string
+  total: number
+  segments: DailySkillUsageSegment[]
+}
+
 function usageCountForGroup(
   group: SkillGroup,
   countsBySkillMdPath: Record<string, number>,
@@ -128,4 +141,82 @@ export function usageByAgentForGroup(
       count: usageCountForGroup(group, craftAgentsCounts),
     },
   ]
+}
+
+export function usageSourceKeyForAgent(agentId: string) {
+  if (agentId === 'claude') {
+    return 'claude-code'
+  }
+
+  if (agentId === 'craft_agents') {
+    return 'craft-agents'
+  }
+
+  return agentId
+}
+
+export function dailySkillUsageForProfile(
+  profile: AgentCatalogProfile,
+  skillsById: Map<string, Skill>,
+  skillUsage: SkillUsageSnapshot,
+  dayLimit = 14,
+  segmentLimit = 6,
+): DailySkillUsageBar[] {
+  const sourceKey = usageSourceKeyForAgent(profile.agentId)
+  const dailyCounts = skillUsage.countsByDayBySource?.[sourceKey] ?? {}
+  const trackedSkills = profile.skills
+    .map((profileSkill) => skillsById.get(profileSkill.id))
+    .filter((skill): skill is Skill => Boolean(skill))
+  const colorIndexesBySkillId = new Map<string, number>()
+
+  return Object.entries(dailyCounts)
+    .map(([date, counts]) => {
+      const rawSegments = trackedSkills
+        .map((skill) => ({
+          skillId: skill.id,
+          skillName: skill.name || skill.slug || skill.location,
+          count: usageCountForSkill(counts, skill),
+          colorIndex: 0,
+        }))
+        .filter((segment) => segment.count > 0)
+        .sort((left, right) => {
+          if (left.count !== right.count) {
+            return right.count - left.count
+          }
+
+          return left.skillName.localeCompare(right.skillName, 'zh-CN')
+        })
+
+      const visibleSegments = rawSegments.slice(0, segmentLimit)
+      const otherCount = rawSegments
+        .slice(segmentLimit)
+        .reduce((sum, segment) => sum + segment.count, 0)
+      const segments = otherCount > 0
+        ? [
+            ...visibleSegments,
+            {
+              skillId: `other-${date}`,
+              skillName: 'Other',
+              count: otherCount,
+              colorIndex: 0,
+            },
+          ]
+        : visibleSegments
+
+      for (const segment of segments) {
+        if (!colorIndexesBySkillId.has(segment.skillId)) {
+          colorIndexesBySkillId.set(segment.skillId, colorIndexesBySkillId.size)
+        }
+        segment.colorIndex = colorIndexesBySkillId.get(segment.skillId) ?? 0
+      }
+
+      return {
+        date,
+        total: segments.reduce((sum, segment) => sum + segment.count, 0),
+        segments,
+      }
+    })
+    .filter((day) => day.total > 0)
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .slice(-dayLimit)
 }

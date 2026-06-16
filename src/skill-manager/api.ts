@@ -111,6 +111,7 @@ function emptyDevSkillUsage(): SkillUsageSnapshot {
     version: 1,
     countsBySkillMdPath: {},
     countsBySkillMdPathBySource: {},
+    countsByDayBySource: {},
     lastScanAt: null,
     scanNote: null,
   }

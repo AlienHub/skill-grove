@@ -61,6 +61,7 @@ const emptySkillUsage: SkillUsageSnapshot = {
   version: 1,
   countsBySkillMdPath: {},
   countsBySkillMdPathBySource: {},
+  countsByDayBySource: {},
   lastScanAt: null,
   scanNote: null,
 }
@@ -164,6 +165,7 @@ export function SkillManagerPage() {
 
     return groupsBySkillId
   }, [skillGroups])
+  const skillsById = useMemo(() => new Map(skillState.skills.map((skill) => [skill.id, skill])), [skillState.skills])
   const multiSourceGroupCount = useMemo(
     () => skillGroups.filter((group) => group.sourceCount > 1).length,
     [skillGroups]
@@ -686,6 +688,8 @@ export function SkillManagerPage() {
             <ApplicationDetailPanel
               hasTitlebarInset={isTauriWindow}
               profile={selectedAppProfile}
+              skillUsage={skillUsage}
+              skillsById={skillsById}
               skillGroupsBySkillId={skillGroupsBySkillId}
               onSelectSkillGroup={handleSelectSkillGroup}
             />

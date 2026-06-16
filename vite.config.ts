@@ -167,6 +167,7 @@ function devSkillUsageState() {
     version: 1,
     countsBySkillMdPath: {} as Record<string, number>,
     countsBySkillMdPathBySource: {} as Record<string, Record<string, number>>,
+    countsByDayBySource: {} as Record<string, Record<string, Record<string, number>>>,
     lastScanAt: null as string | null,
     scanNote:
       'Web preview: usage counting runs only in the desktop app and scans Claude Code, Codex, OpenClaw, and Craft Agents transcripts.',

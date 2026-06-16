@@ -9,6 +9,7 @@ export type SkillUsageSnapshot = {
   version: number
   countsBySkillMdPath: Record<string, number>
   countsBySkillMdPathBySource: Record<string, Record<string, number>>
+  countsByDayBySource: Record<string, Record<string, Record<string, number>>>
   lastScanAt: string | null
   scanNote: string | null
 }

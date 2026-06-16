@@ -1,6 +1,7 @@
+use super::{count_skill_usage, event_day, DailyUsageCounts, UsageCounts};
 use serde_json::Value;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fs::{self, File},
     io::{BufRead, BufReader},
     path::{Path, PathBuf},
@@ -88,7 +89,8 @@ fn allowed_skills(allowed_longest_first: &[String]) -> Vec<AllowedSkill> {
 fn count_invoked_skills(
     value: &Value,
     allowed: &[AllowedSkill],
-    counts: &mut HashMap<String, u64>,
+    counts: &mut UsageCounts,
+    daily_counts: &mut DailyUsageCounts,
 ) {
     let Some(skills) = value
         .get("attachment")
@@ -98,13 +100,14 @@ fn count_invoked_skills(
         return;
     };
 
+    let day = event_day(value);
     for skill in skills {
         let Some(name) = skill.get("name").and_then(Value::as_str) else {
             continue;
         };
         let name = normalize_alias(name);
         if let Some(hit) = allowed.iter().find(|entry| entry.aliases.contains(&name)) {
-            *counts.entry(hit.skill_md_path.clone()).or_default() += 1;
+            count_skill_usage(counts, daily_counts, hit.skill_md_path.clone(), day.clone());
         }
     }
 }
@@ -112,7 +115,8 @@ fn count_invoked_skills(
 fn scan_one_claude_jsonl(
     path: &std::path::Path,
     allowed: &[AllowedSkill],
-    counts: &mut HashMap<String, u64>,
+    counts: &mut UsageCounts,
+    daily_counts: &mut DailyUsageCounts,
 ) -> Result<(), std::io::Error> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -126,7 +130,7 @@ fn scan_one_claude_jsonl(
                 .and_then(Value::as_str)
                 == Some("invoked_skills")
             {
-                count_invoked_skills(&value, allowed, counts);
+                count_invoked_skills(&value, allowed, counts, daily_counts);
             }
         }
     }
@@ -136,17 +140,17 @@ fn scan_one_claude_jsonl(
 
 pub fn scan_claude_project_jsonl(
     allowed_longest_first: &[String],
-) -> (HashMap<String, u64>, Vec<String>) {
+) -> (UsageCounts, DailyUsageCounts, Vec<String>) {
     let mut notes = Vec::new();
     if allowed_longest_first.is_empty() {
-        return (HashMap::new(), notes);
+        return (UsageCounts::new(), DailyUsageCounts::new(), notes);
     }
     let allowed = allowed_skills(allowed_longest_first);
 
     let projects = home_dir().join(".claude").join("projects");
     if !projects.is_dir() {
         notes.push("Claude Code: ~/.claude/projects not found".to_string());
-        return (HashMap::new(), notes);
+        return (UsageCounts::new(), DailyUsageCounts::new(), notes);
     }
 
     let mut files = Vec::new();
@@ -154,14 +158,15 @@ pub fn scan_claude_project_jsonl(
 
     if files.is_empty() {
         notes.push("Claude Code: no .jsonl transcripts".to_string());
-        return (HashMap::new(), notes);
+        return (UsageCounts::new(), DailyUsageCounts::new(), notes);
     }
 
-    let mut counts: HashMap<String, u64> = HashMap::new();
+    let mut counts = UsageCounts::new();
+    let mut daily_counts = DailyUsageCounts::new();
     let mut failures = 0usize;
 
     for path in &files {
-        if let Err(e) = scan_one_claude_jsonl(path, &allowed, &mut counts) {
+        if let Err(e) = scan_one_claude_jsonl(path, &allowed, &mut counts, &mut daily_counts) {
             failures += 1;
             notes.push(format!("{} ({e})", path.display()));
         }
@@ -174,5 +179,5 @@ pub fn scan_claude_project_jsonl(
         ));
     }
 
-    (counts, notes)
+    (counts, daily_counts, notes)
 }
