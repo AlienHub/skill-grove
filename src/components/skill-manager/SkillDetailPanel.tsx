@@ -17,6 +17,7 @@ import { SkillInstructions } from './SkillInstructions'
 import { SkillSourceActions, SkillSourceRemoveButton } from './SkillSourceActions'
 import { CurrentVariantSources, SkillSourcePicker } from './SkillSourcePicker'
 import { BodyPortal } from '../ui/BodyPortal'
+import { Button } from '@najafi/design-system'
 
 function formatTokenEstimate(tokens: number) {
   if (tokens >= 1000) {
@@ -509,14 +510,14 @@ export function SkillDetailPanel({
                                 </p>
                                 <UsageHelpTooltip items={usageHelpItems} label={t('detail.usageHelp')} />
                               </div>
-                              <button
-                                className="rounded-md border border-border/60 bg-[var(--surface)] px-2.5 py-1 text-[12px] font-medium text-foreground/80 transition-colors hover:bg-foreground/5 disabled:opacity-50"
-                                disabled={usageRefreshing}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                loading={usageRefreshing}
                                 onClick={onRefreshUsage}
-                                type="button"
                               >
                                 {usageRefreshing ? t('detail.usageRefreshing') : t('detail.usageRefresh')}
-                              </button>
+                              </Button>
                             </div>
                             <div className="border-y border-[color-mix(in_srgb,var(--foreground)_9%,transparent)]">
                               <table className="w-full border-collapse text-left text-[12px]">
