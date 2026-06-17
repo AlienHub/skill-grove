@@ -107,3 +107,17 @@ skill-grove/                      # 根 = workspace root，同时仍是 App（Ta
 | **5.（可选）** | 对这个干净的包跑 design-sync → 接入 claude.ai/design | 低 |
 
 **关键收益**：到阶段 5，最初「同步到 Design」的诉求自然成立 —— 那时它真的是一个组件库，不再是 App。
+
+## 八、进度与下一步（截至 2026-06-17，分支 `feat/design-system`）
+
+| 阶段 | 状态 | 备注 |
+|---|---|---|
+| 0 脚手架 | ✅ 完成 | bun workspace + 包骨架，零回归 |
+| 1 Token 包 | ✅ 完成 | token 三件套抽入包，App 改 `@import`，构建逐字节零回归 |
+| 2 AI 契约 | ✅ 完成 | `packages/design-system/AGENTS.md` + 清裸色 |
+| 3 组件原语 | 🟡 样板完成，余量暂停 | `Button` 原语 + 包级 `@source` 消费机制 + 1 处替换验证；其余原语与 ~53 按钮批量替换**暂停** |
+| 4 分发 | ⏸️ 暂不做 | 决定先只在本仓库用，暂不发布 npm |
+
+**下一步（用户主导）：** 先在 **Claude Design** 里确认组件规范（按钮/卡片/输入等的视觉与变体），规范定稿后再回来把它落到 app —— 更新包内原语的 API/样式，然后批量替换 app 里的手写 className。
+
+**带去 Claude Design 的输入：** `packages/design-system/AGENTS.md`（真实 token 词汇）、`src/tokens/theme.css`（6 基色 + 间距/字体/层级），让设计基于真实约束，落地时无缝。
