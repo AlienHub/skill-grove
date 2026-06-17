@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Input } from '@najafi/design-system'
 import { useAppPreferences } from '../../skill-manager/preferences'
 import { type LibraryFilter, type LibraryVisitState, type SkillGroup } from '../../skill-manager/types'
 import { groupMatchesLibraryFilter } from '../../skill-manager/libraryInsights'
@@ -79,8 +80,8 @@ export function SkillSidebar({
           </p>
         ) : null}
         <div className="relative mt-3 flex gap-1.5">
-          <input
-            className="h-8 min-w-0 flex-1 rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-3 text-[12px] text-foreground outline-none placeholder:text-foreground/35 focus:border-foreground/18"
+          <Input
+            className="min-w-0 flex-1 bg-[var(--surface-muted)]"
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder={t('app.searchPlaceholder')}
             type="search"
