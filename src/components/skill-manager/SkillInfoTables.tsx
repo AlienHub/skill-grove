@@ -10,6 +10,21 @@ import { SkillSourceActions, SkillSourceRemoveButton } from './SkillSourceAction
 import { BodyPortal } from '../ui/BodyPortal'
 import { Ripple } from '../ui/Ripple'
 
+function ChevronDownIcon({ className, size }: { className?: string, size: number }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      height={size}
+      viewBox="0 0 24 24"
+      width={size}
+    >
+      <path d="m7 10 5 5 5-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+    </svg>
+  )
+}
+
 function formatValue(value: unknown) {
   if (value === null || value === undefined || value === '') {
     return '—'
@@ -93,6 +108,47 @@ export function SkillMetadataTable({ skill }: { skill: Skill }) {
   return <DefinitionTable rows={rows} />
 }
 
+export function SkillSourceDetails({ skill }: { skill: Skill }) {
+  const { t } = useAppPreferences()
+  const rows = useMemo(() => buildSourceRows(skill, t), [skill, t])
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+
+  return (
+    <div className="overflow-hidden rounded-[8px] border border-[color-mix(in_srgb,var(--foreground)_9%,transparent)] bg-[var(--surface)] shadow-minimal-flat">
+      <button
+        aria-expanded={isDetailsOpen}
+        className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03]"
+        onClick={() => setIsDetailsOpen((value) => !value)}
+        type="button"
+      >
+        <div className="min-w-0">
+          <p className="text-[12px] font-medium text-foreground/70">{t('source.details')}</p>
+          <p className="mt-0.5 text-[11px] text-foreground/40">{t('source.detailsSummary')}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 text-[11px] font-medium text-foreground/44">
+          <span>{isDetailsOpen ? t('common.collapse') : t('common.expand')}</span>
+          <ChevronDownIcon className={`transition-transform ${isDetailsOpen ? 'rotate-180' : ''}`} size={14} />
+        </div>
+      </button>
+      {isDetailsOpen ? (
+        <dl className="divide-y divide-[color-mix(in_srgb,var(--foreground)_7%,transparent)] border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)]">
+          {rows.map((row) => (
+            <div
+              className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 px-3 py-2 sm:grid-cols-[96px_minmax(0,1fr)]"
+              key={row.label}
+            >
+              <dt className="text-[12px] text-foreground/48">{row.label}</dt>
+              <dd className="min-w-0 whitespace-pre-wrap break-words text-[12px] text-foreground/84">
+                {row.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </div>
+  )
+}
+
 export function SkillSourceTable({
   openDirectoryTargets,
   primarySkillRepository,
@@ -119,16 +175,15 @@ export function SkillSourceTable({
   onRemoveSource: (skill: Skill) => Promise<void>
 }) {
   const { t } = useAppPreferences()
-  const rows = useMemo(() => buildSourceRows(skill, t), [skill, t])
 
   return (
     <div className="relative z-30 overflow-hidden rounded-[8px] border border-[color-mix(in_srgb,var(--foreground)_9%,transparent)] bg-[var(--surface)] shadow-minimal-flat">
-      <div className="flex items-center justify-between gap-3 border-b border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-3 py-2">
+      <div className="border-b border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-3 py-3">
         <div className="min-w-0">
           <p className="text-[12px] font-medium text-foreground/68">{t('table.currentSource')}</p>
           <p className="mt-0.5 truncate text-[11px] text-foreground/38">{skill.skillDirectory}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] pt-3">
           <SkillSourceGovernanceActions
             primarySkillRepository={primarySkillRepository}
             shareTargetDirectories={shareTargetDirectories}
@@ -150,19 +205,7 @@ export function SkillSourceTable({
           />
         </div>
       </div>
-      <dl className="divide-y divide-[color-mix(in_srgb,var(--foreground)_7%,transparent)]">
-        {rows.map((row) => (
-          <div
-            className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 px-3 py-2 sm:grid-cols-[96px_minmax(0,1fr)]"
-            key={row.label}
-          >
-            <dt className="text-[12px] text-foreground/48">{row.label}</dt>
-            <dd className="min-w-0 whitespace-pre-wrap break-words text-[12px] text-foreground/84">
-              {row.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <SkillSourceDetails skill={skill} />
     </div>
   )
 }
@@ -194,7 +237,8 @@ function errorText(error: unknown, fallback: string) {
   return fallback
 }
 
-function SkillSourceGovernanceActions({
+export function SkillSourceGovernanceActions({
+  actions = ['export', 'share', 'convert', 'migrate'],
   primarySkillRepository,
   shareTargetDirectories,
   skill,
@@ -204,6 +248,7 @@ function SkillSourceGovernanceActions({
   onExportZip,
   onMigrateToPrimary,
 }: {
+  actions?: Array<'export' | 'share' | 'convert' | 'migrate'>
   primarySkillRepository: string
   shareTargetDirectories: string[]
   skill: Skill
@@ -240,6 +285,10 @@ function SkillSourceGovernanceActions({
   const selectedShareTargetCount = selectedShareTargets.length
   const canMigrateToPrimary =
     isRealSource && !isResolvedSkillUnderPrimaryRepository(skill.resolvedSkillDirectory, primarySkillRepository)
+  const canExport = actions.includes('export')
+  const canShare = actions.includes('share') && hasShareTargets
+  const canConvert = actions.includes('convert') && hasConvertTargets
+  const canMigrate = actions.includes('migrate') && canMigrateToPrimary
 
   if (!isRealSource) {
     return null
@@ -324,16 +373,18 @@ function SkillSourceGovernanceActions({
 
   return (
     <>
-      <button
-        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-default disabled:opacity-55"
-        disabled={isExporting}
-        onClick={handleExportZip}
-        type="button"
-      >
-        {isExporting ? <Ripple className="text-foreground/48" size={12} /> : null}
-        <span>{t('source.exportZip')}</span>
-      </button>
-      {hasShareTargets ? (
+      {canExport ? (
+        <button
+          className="flex h-8 cursor-pointer items-center gap-1.5 rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-default disabled:opacity-55"
+          disabled={isExporting}
+          onClick={handleExportZip}
+          type="button"
+        >
+          {isExporting ? <Ripple className="text-foreground/48" size={12} /> : null}
+          <span>{t('source.exportZip')}</span>
+        </button>
+      ) : null}
+      {canShare ? (
         <button
           className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground"
           onClick={openShareMode}
@@ -342,7 +393,7 @@ function SkillSourceGovernanceActions({
           {t('source.share')}
         </button>
       ) : null}
-      {hasConvertTargets ? (
+      {canConvert ? (
         <button
           className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground"
           onClick={() => {
@@ -354,7 +405,7 @@ function SkillSourceGovernanceActions({
           {t('source.convertToSoftLink')}
         </button>
       ) : null}
-      {canMigrateToPrimary ? (
+      {canMigrate ? (
         <button
           className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground"
           onClick={() => {
