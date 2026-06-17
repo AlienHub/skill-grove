@@ -7,6 +7,7 @@ import {
   changeParams,
 } from '../../skill-manager/libraryPresentation'
 import { type AgentCatalogProfile, type LibraryVisitState, type SkillGroup } from '../../skill-manager/types'
+import { Button } from '@najafi/design-system'
 import { Ripple } from '../ui/Ripple'
 
 function formatTokenEstimate(tokens: number) {
@@ -143,28 +144,18 @@ export function LibraryHomePanel({
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-2">
-              <button
-                className="cursor-pointer rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
+              <Button
                 disabled={!firstSkillGroup}
                 onClick={() => firstSkillGroup && onSelectSkillGroup(firstSkillGroup)}
-                type="button"
               >
                 {t('home.openLibrary')}
-              </button>
-              <button
-                className="cursor-pointer rounded-[8px] bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground/64 shadow-minimal-flat transition-colors hover:text-foreground"
-                onClick={onOpenAgentSkillConfig}
-                type="button"
-              >
+              </Button>
+              <Button variant="outline" onClick={onOpenAgentSkillConfig}>
                 {t('app.agentSkillConfig')}
-              </button>
-              <button
-                className="cursor-pointer rounded-[8px] bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground/64 shadow-minimal-flat transition-colors hover:text-foreground"
-                onClick={onOpenSettings}
-                type="button"
-              >
+              </Button>
+              <Button variant="outline" onClick={onOpenSettings}>
                 {t('app.settings')}
-              </button>
+              </Button>
             </div>
           </div>
 
