@@ -1,0 +1,14 @@
+/* @najafi/design-system · styles.css
+ *
+ * Full stylesheet entry for projects that don't already have Tailwind wired.
+ * Pulls in Tailwind v4 plus the design tokens. Consume it as:
+ *
+ *   @import "@najafi/design-system/styles.css";
+ *
+ * A project that already imports Tailwind should use the token-only entry
+ * instead: `@import "@najafi/design-system/tokens.css";`
+ */
+@import "tailwindcss";
+@import "./tokens/base.css";
+@import "./tokens/dark.css";
+@import "./tokens/theme.css";

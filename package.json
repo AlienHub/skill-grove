@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Standalone Skill Manager app",
+  "workspaces": [
+    "packages/*"
+  ],
   "license": "Apache-2.0",
   "scripts": {
     "dev": "lsof -ti:5176 | xargs kill -9 2>/dev/null; vite --host 127.0.0.1 --port 5176",
@@ -15,6 +18,7 @@
     "dmg": "tauri build --bundles app,dmg"
   },
   "dependencies": {
+    "@najafi/design-system": "workspace:*",
     "@lobehub/icons": "^5.6.0",
     "@tauri-apps/api": "^2.9.0",
     "@tauri-apps/plugin-dialog": "^2.4.1",

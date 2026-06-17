@@ -1,0 +1,14 @@
+/* @najafi/design-system · tokens.css
+ *
+ * Token-only entry — the design tokens WITHOUT pulling in Tailwind itself.
+ * Use this from a project that already imports Tailwind (e.g. the skill-grove app):
+ *
+ *   @import "tailwindcss" source(none);
+ *   @import "@najafi/design-system/tokens.css";
+ *
+ * New projects that don't yet have Tailwind wired should import the full
+ * `@najafi/design-system/styles.css` instead.
+ */
+@import "./tokens/base.css";
+@import "./tokens/dark.css";
+@import "./tokens/theme.css";

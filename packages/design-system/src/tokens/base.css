@@ -1,0 +1,229 @@
+/* =============================================================================
+   @najafi/design-system · tokens/base.css
+
+   Light-mode token definitions + animatable color registration.
+   Single source of truth for the design language. Dark overrides live in
+   dark.css; the Tailwind v4 theme mapping lives in theme.css.
+
+   NOTE: a few tokens marked `app-specific` below were lifted verbatim from the
+   skill-grove app during 阶段1 to keep the migration zero-regression. They are
+   harmless as plain custom properties; revisit nudging them back to the app
+   when primitives are extracted (阶段3).
+============================================================================= */
+
+/* =============================================================================
+   ANIMATABLE CSS CUSTOM PROPERTIES
+
+   Register theme color variables as animatable using @property so theme changes
+   (e.g. hover preview) transition smoothly. Chromium/Electron supports @property.
+============================================================================= */
+
+@property --background {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.98 0.003 265);
+}
+
+@property --foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.185 0.01 270);
+}
+
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.62 0.13 293);
+}
+
+@property --info {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.65 0.16 70);
+}
+
+@property --success {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.55 0.17 145);
+}
+
+@property --destructive {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.55 0.22 27);
+}
+
+/* =============================================================================
+   6 COLOR SYSTEM
+
+   Base colors:
+   - background: Light/dark surface
+   - foreground: Text and icons
+   - accent: Brand purple (highlights, Auto mode)
+   - info: Amber (warnings, Ask mode)
+   - success: Green (connected, checkmarks)
+   - destructive: Red (errors, failed)
+
+   Variants:
+   - /50 = 50% alpha (transparency) - for borders, hovers, overlays
+   - -50 = 50% mix toward background (solid) - for Explore mode
+
+   Example: bg-foreground/10, text-accent, bg-foreground-60
+============================================================================= */
+
+:root {
+  /* === 6 BASE COLORS === */
+  --background: oklch(0.98 0.003 265);
+  --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
+  --surface: oklch(1 0 0);
+  --surface-muted: color-mix(in srgb, var(--foreground) 2%, var(--surface));
+  --surface-subtle: color-mix(in srgb, var(--foreground) 1.5%, var(--surface));
+  --foreground: oklch(0.185 0.01 270);
+  --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
+  --foreground-rgb: 38, 36, 42;             /* RGB for shadow borders */
+  --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);          /* app-specific */
+  --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);   /* app-specific */
+  --accent: oklch(0.62 0.13 293);           /* brand accent */
+  --accent-rgb: 104, 78, 133;               /* darkened RGB for shadow-tinted (70% of accent) */
+  --info: oklch(0.75 0.16 70);              /* amber - warnings, Ask mode */
+  --info-rgb: 180, 120, 40;                 /* RGB for shadow-tinted */
+  --success: oklch(0.55 0.17 145);          /* green - connected, checkmarks */
+  --success-rgb: 34, 120, 60;               /* RGB for shadow-tinted */
+  --destructive: oklch(0.58 0.24 28);       /* red - errors, failed */
+  --destructive-rgb: 180, 60, 50;           /* RGB for shadow-tinted */
+
+  /* === SHADOW OPACITY (light mode = subtle, dark mode = stronger) === */
+  --shadow-border-opacity: 0.08;            /* Border ring opacity */
+  --shadow-blur-opacity: 0.06;              /* Blur/spread shadow opacity */
+
+  /* === SHADOW VALUES (reusable across utility classes and component overrides) === */
+  --shadow-minimal:
+    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
+    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
+    rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px,
+    rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 1px 1px -0.5px,
+    rgba(0, 0, 0, var(--shadow-blur-opacity)) 0px 3px 3px -1.5px;
+
+  /* Minimal shadow without blur layers — just the border ring */
+  --shadow-minimal-flat:
+    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
+    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
+    rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px;
+
+  --shadow-modal-small:
+    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
+    rgba(0, 0, 0, 0) 0px 0px 0px 0px,
+    rgba(var(--foreground-rgb), 0.06) 0px 0px 0px 1px,
+    rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 1px 1px -0.5px,
+    rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.67)) 0px 3px 3px 0px,
+    rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 6px 6px 0px,
+    rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 12px 12px 0px,
+    rgba(0, 0, 0, calc(var(--shadow-blur-opacity) * 0.33)) 0px 24px 24px 0px;
+
+  /* === MIX VARIANTS (solid interpolation toward background) === */
+  /* Use -2, -3, -5, -10, -20, ..., -90, -95 for solid colors (e.g., separators, Explore mode) */
+  --foreground-1\.5: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
+  --foreground-2: color-mix(in srgb, var(--foreground) 2%, var(--background));
+  --foreground-3: color-mix(in srgb, var(--foreground) 3%, var(--background));
+  --foreground-5: color-mix(in srgb, var(--foreground) 5%, var(--background));
+  --foreground-10: color-mix(in srgb, var(--foreground) 10%, var(--background));
+  --foreground-20: color-mix(in srgb, var(--foreground) 20%, var(--background));
+  --foreground-30: color-mix(in srgb, var(--foreground) 30%, var(--background));
+  --foreground-40: color-mix(in srgb, var(--foreground) 40%, var(--background));
+  --foreground-50: color-mix(in srgb, var(--foreground) 50%, var(--background));
+  --foreground-60: color-mix(in srgb, var(--foreground) 60%, var(--background));
+  --foreground-70: color-mix(in srgb, var(--foreground) 70%, var(--background));
+  --foreground-80: color-mix(in srgb, var(--foreground) 80%, var(--background));
+  --foreground-90: color-mix(in srgb, var(--foreground) 90%, var(--background));
+  --foreground-95: color-mix(in srgb, var(--foreground) 95%, var(--background));
+
+  /* Success/destructive/info interpolated toward foreground (for tinted text) */
+  /* Using oklab for perceptually uniform mixing without hue shifts */
+  --success-text: color-mix(in oklab, var(--success) 50%, var(--foreground));
+  --destructive-text: color-mix(in oklab, var(--destructive) 50%, var(--foreground));
+  --info-text: color-mix(in oklab, var(--info) 50%, var(--foreground));
+
+  /* === SHADCN COMPATIBILITY (derived from 6 base colors) === */
+  /* These variables exist for shadcn/ui component updates */
+  --secondary: oklch(from var(--foreground) l c h / 0.05);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(from var(--foreground) l c h / 0.05);
+  --muted-foreground: var(--foreground-50);
+  --card: var(--background);
+  --card-foreground: var(--foreground);
+  --popover: var(--background);
+  --popover-foreground: var(--foreground);
+  --border: oklch(from var(--foreground) l c h / 0.05);
+  --input: oklch(from var(--foreground) l c h / 0.1);
+  --ring: oklch(from var(--foreground) l c h / 0.25);
+  --ring-width: 1px;
+  --ring-offset: 0px;
+
+  /* Markdown list markers — app-specific */
+  --md-bullets: var(--foreground-50);
+  --md-counters: var(--foreground-50);
+
+  /* Onboarding step styling — app-specific */
+  --step-icon-size: 4rem;
+  --step-icon-inner-size: 2rem;
+  --step-icon-radius: 1rem;
+  --step-title-size: 1.5rem;
+  --step-description-max-width: 24rem;
+  --step-actions-gap: 0.75rem;
+  --step-content-gap: 1.5rem;
+  --step-actions-margin: 2rem;
+
+  /* Fonts - System fonts as default, Inter via data-font="inter" */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-default: var(--font-sans);
+
+  /* Layout */
+  --font-size-base: 15px;
+  --radius: 0rem;
+  --spacing: 0.25rem;
+  --tracking-normal: 0em;
+
+  /* === Z-INDEX SCALE ===
+     Centralized z-index registry for consistent stacking order.
+     Use semantic names (z-panel, z-modal) instead of magic numbers.
+
+     Layer              Value   Use Case
+     ─────────────────────────────────────────────────────
+     base               0       Default content
+     local              10      Local stacking (sticky headers, icons)
+     sticky             20      Sticky section headers
+     titlebar           40      Window titlebar drag region
+     panel              50      App panels (sidebar, chat, detail)
+     dropdown           100     Dropdowns, popovers, select menus
+     tooltip            150     Tooltips (above dropdowns)
+     modal              200     Dialogs, drawers
+     overlay            300     Full-screen overlays (settings, app chrome)
+     fullscreen         350     Fullscreen content viewers (above app chrome)
+     floating-backdrop  390     Backdrop for floating menus
+     floating-menu      400     Floating menus above modals
+     island-overlay     390     Backdrop for annotation island interactions
+     island             400     Annotation island menu surface
+     island-popover     410     Popovers/dropdowns opened from island content
+     splash             600     Splash screen, workspace creation
+  */
+  --z-base: 0;
+  --z-local: 10;
+  --z-sticky: 20;
+  --z-titlebar: 40;
+  --z-panel: 50;
+  --z-dropdown: 100;
+  --z-tooltip: 150;
+  --z-modal: 200;
+  --z-overlay: 300;
+  --z-fullscreen: 350;
+  --z-floating-backdrop: 390;
+  --z-floating-menu: 400;
+  --z-island-overlay: 390;
+  --z-island: 400;
+  --z-island-popover: 410;
+  --z-splash: 600;
+
+}
