@@ -1,5 +1,16 @@
 # AGENTS Notes
 
+## Design system (read first when styling UI)
+
+All design tokens — colors, fonts, z-index, container breakpoints — live in the
+`@najafi/design-system` package and are imported by `src/index.css`. **Before
+writing any UI, read [`packages/design-system/AGENTS.md`](packages/design-system/AGENTS.md)**:
+it is the contract for which token utilities/variables to use. Never use raw
+Tailwind color scales (`text-red-500`, `bg-slate-100`) — use semantic tokens
+(`text-destructive`, `bg-surface`, `text-foreground/48`) which auto-adapt to
+light/dark. App-local utility classes (`.shadow-*`, `.popover-styled`, …) still
+live in `src/index.css @layer utilities`.
+
 ## UI Pitfalls
 
 ### 1. Treat popovers / tooltips / dropdowns as a layering problem first, not just a `z-index` problem

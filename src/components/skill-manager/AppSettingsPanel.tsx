@@ -298,7 +298,7 @@ export function AppSettingsPanel({
               </div>
             </div>
             {primaryRepositoryError ? (
-              <p className="mt-2 text-[12px] text-red-600 dark:text-red-400">{primaryRepositoryError}</p>
+              <p className="mt-2 text-[12px] text-destructive">{primaryRepositoryError}</p>
             ) : null}
           </div>
         </section>

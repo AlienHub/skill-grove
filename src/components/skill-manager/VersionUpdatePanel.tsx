@@ -94,7 +94,7 @@ export function VersionUpdatePanel({
               {checkedAt ? t('updates.lastChecked', { checkedAt }) : t('updates.autoCheckHint')}
             </div>
             {updateInstallStatus === 'error' && updateInstallError ? (
-              <div className="mt-1 text-[12px] text-red-500/80">{updateInstallError}</div>
+              <div className="mt-1 text-[12px] text-destructive/80">{updateInstallError}</div>
             ) : null}
           </div>
 
