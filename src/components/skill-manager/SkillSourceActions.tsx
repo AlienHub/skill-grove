@@ -5,7 +5,7 @@ import { useAppPreferences } from '../../skill-manager/preferences'
 import { isRealSkillSource } from '../../skill-manager/skillGrouping'
 import { type DirectoryOpenTarget, type Skill } from '../../skill-manager/types'
 import { BodyPortal } from '../ui/BodyPortal'
-import { Ripple } from '../ui/Ripple'
+import { Button } from '@najafi/design-system'
 
 function ChevronDownIcon({ size }: { size: number }) {
   return (
@@ -297,7 +297,7 @@ export function SkillSourceRemoveButton({
   return (
     <>
       <button
-        className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/42 transition-colors hover:bg-[#b04a3a]/7 hover:text-[#b04a3a]"
+        className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/42 transition-colors hover:bg-destructive/[0.07] hover:text-destructive"
         onClick={() => {
           setRemovalErrorMessage(null)
           setIsConfirmingRemoval(true)
@@ -334,29 +334,18 @@ export function SkillSourceRemoveButton({
                   </p>
                 )}
                 {removalErrorMessage ? (
-                  <p className="rounded-[8px] border border-[#b04a3a]/25 bg-[#b04a3a]/7 px-3 py-2 text-[#8f3f33]">
+                  <p className="rounded-[8px] border border-destructive/25 bg-destructive/[0.07] px-3 py-2 text-[var(--destructive-text)]">
                     {removalErrorMessage}
                   </p>
                 ) : null}
               </div>
               <div className="mt-5 flex justify-end gap-2">
-                <button
-                  className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 text-[12px] font-medium text-foreground/64 transition-colors hover:bg-foreground/5 hover:text-foreground"
-                  disabled={isRemoving}
-                  onClick={() => setIsConfirmingRemoval(false)}
-                  type="button"
-                >
+                <Button variant="outline" disabled={isRemoving} onClick={() => setIsConfirmingRemoval(false)}>
                   {t('common.cancel')}
-                </button>
-                <button
-                  className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-[8px] bg-[#b04a3a] px-3 text-[12px] font-medium text-white transition-colors hover:bg-[#963f32] disabled:cursor-default disabled:opacity-55"
-                  disabled={isRemoving}
-                  onClick={handleRemoveSource}
-                  type="button"
-                >
-                  {isRemoving ? <Ripple size={13} /> : null}
+                </Button>
+                <Button variant="destructive" loading={isRemoving} onClick={handleRemoveSource}>
                   {isRemoving ? t('common.processing') : isSoftLink ? t('source.deleteSoftLink') : t('source.trash')}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
