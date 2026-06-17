@@ -9,7 +9,7 @@ import {
 import { useAppPreferences } from '../../skill-manager/preferences'
 import { directoryScanEnabled } from '../../skill-manager/scanDirectories'
 import { type BuiltInDirectoryState, type SourceIcon } from '../../skill-manager/types'
-import { Button } from '@najafi/design-system'
+import { Button, Switch } from '@najafi/design-system'
 
 export function SkillDirectoryConfig({
   builtInDirectories,
@@ -55,26 +55,12 @@ export function SkillDirectoryConfig({
   const unavailableBuiltInDirectories = builtInDirectories.filter((directory) => !directory.installed)
 
   const renderScanToggle = (directory: string, enabled: boolean, disabled = false) => (
-    <button
-      aria-checked={enabled}
+    <Switch
       aria-label={enabled ? t('directories.disableScan') : t('directories.enableScan')}
-      className={`inline-flex h-6 w-11 cursor-pointer items-center rounded-full border p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-        enabled
-          ? 'justify-end border-foreground/12 bg-foreground/64 hover:bg-foreground/72'
-          : 'justify-start border-border/55 bg-foreground/6 hover:bg-foreground/10'
-      }`}
+      checked={enabled}
       disabled={inputDisabled || disabled || pendingScanDirectory === directory}
-      onClick={() => onSetDirectoryScanEnabled(directory, !enabled)}
-      role="switch"
-      title={enabled ? t('directories.disableScan') : t('directories.enableScan')}
-      type="button"
-    >
-      <span
-        className={`size-4 rounded-full shadow-minimal-flat transition-colors ${
-          enabled ? 'bg-[var(--surface)]' : 'bg-foreground/34'
-        }`}
-      />
-    </button>
+      onCheckedChange={(next) => onSetDirectoryScanEnabled(directory, next)}
+    />
   )
 
   const handleChooseDirectory = () => {
