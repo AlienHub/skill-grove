@@ -5,7 +5,7 @@ import { useAppPreferences } from '../../skill-manager/preferences'
 import { buildAvailableShareTargets, toggleShareTargetSelection } from '../../skill-manager/shareTargets'
 import { isRealSkillSource, isResolvedSkillUnderPrimaryRepository } from '../../skill-manager/skillGrouping'
 import { type DirectoryOpenTarget, type Skill, type SkillGroup } from '../../skill-manager/types'
-import { DefinitionTable } from './DefinitionTable'
+import { Button, DefinitionTable } from '@najafi/design-system'
 import { SkillSourceActions, SkillSourceRemoveButton } from './SkillSourceActions'
 import { BodyPortal } from '../ui/BodyPortal'
 import { Ripple } from '../ui/Ripple'
@@ -345,48 +345,36 @@ export function SkillSourceGovernanceActions({
   return (
     <>
       {canExport ? (
-        <button
-          className="flex h-8 cursor-pointer items-center gap-1.5 rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-default disabled:opacity-55"
-          disabled={isExporting}
-          onClick={handleExportZip}
-          type="button"
-        >
-          {isExporting ? <Ripple className="text-foreground/48" size={12} /> : null}
-          <span>{t('source.exportZip')}</span>
-        </button>
+        <Button variant="ghost" loading={isExporting} onClick={handleExportZip}>
+          {t('source.exportZip')}
+        </Button>
       ) : null}
       {canShare ? (
-        <button
-          className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground"
-          onClick={openShareMode}
-          type="button"
-        >
+        <Button variant="ghost" onClick={openShareMode}>
           {t('source.share')}
-        </button>
+        </Button>
       ) : null}
       {canConvert ? (
-        <button
-          className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground"
+        <Button
+          variant="ghost"
           onClick={() => {
             setErrorMessage(null)
             setMode('convert')
           }}
-          type="button"
         >
           {t('source.convertToSoftLink')}
-        </button>
+        </Button>
       ) : null}
       {canMigrate ? (
-        <button
-          className="h-8 cursor-pointer rounded-[8px] px-3 text-[12px] font-medium text-foreground/52 transition-colors hover:bg-foreground/5 hover:text-foreground"
+        <Button
+          variant="ghost"
           onClick={() => {
             setErrorMessage(null)
             setMode('migratePrimary')
           }}
-          type="button"
         >
           {t('source.migrateToPrimary')}
-        </button>
+        </Button>
       ) : null}
 
       {mode ? (
@@ -415,16 +403,16 @@ export function SkillSourceGovernanceActions({
                         <p className="text-[11px] text-foreground/42">
                           {t('source.shareSelectedCount', { count: selectedShareTargetCount })}
                         </p>
-                        <button
-                          className="h-7 cursor-pointer rounded-[7px] px-2 text-[11px] font-medium text-foreground/48 transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-default disabled:opacity-35"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           disabled={isProcessing}
                           onClick={handleToggleAllShareTargets}
-                          type="button"
                         >
                           {selectedShareTargetCount === shareTargets.length
                             ? t('source.shareClearAll')
                             : t('source.shareSelectAll')}
-                        </button>
+                        </Button>
                       </div>
                       <div className="max-h-[260px] space-y-1 overflow-y-auto">
                         {shareTargets.map((directory) => {
@@ -484,47 +472,31 @@ export function SkillSourceGovernanceActions({
                 </>
               ) : null}
               {errorMessage ? (
-                <p className="mt-3 rounded-[8px] border border-[#b04a3a]/25 bg-[#b04a3a]/7 px-3 py-2 text-[12px] text-[#8f3f33]">
+                <p className="mt-3 rounded-[8px] border border-destructive/25 bg-destructive/[0.07] px-3 py-2 text-[12px] text-[var(--destructive-text)]">
                   {errorMessage}
                 </p>
               ) : null}
               <div className="mt-5 flex flex-wrap justify-end gap-2">
-                <button
-                  className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 text-[12px] font-medium text-foreground/64 transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-default disabled:opacity-55"
-                  disabled={isProcessing}
-                  onClick={close}
-                  type="button"
-                >
+                <Button variant="outline" disabled={isProcessing} onClick={close}>
                   {t('common.cancel')}
-                </button>
+                </Button>
                 {mode === 'migratePrimary' ? (
-                  <button
-                    className="flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-default disabled:opacity-55"
-                    disabled={isProcessing}
-                    onClick={handleMigrateToPrimary}
-                    type="button"
-                  >
-                    {isProcessing ? <Ripple className="text-background/72" size={12} /> : null}
+                  <Button loading={isProcessing} onClick={handleMigrateToPrimary}>
                     {t('source.migrateToPrimaryConfirm')}
-                  </button>
+                  </Button>
                 ) : mode === 'share' ? (
-                  <button
-                    className={`flex h-8 min-w-[128px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] px-3 text-[12px] font-medium transition-colors disabled:cursor-default ${
-                      selectedShareTargetCount === 0
-                        ? 'border border-border/50 bg-foreground/5 text-foreground/34'
-                        : 'bg-foreground text-background hover:opacity-88'
-                    }`}
-                    disabled={isProcessing || selectedShareTargetCount === 0}
+                  <Button
+                    className="min-w-[128px]"
+                    loading={isProcessing}
+                    disabled={selectedShareTargetCount === 0}
                     onClick={handleShareSelected}
-                    type="button"
                   >
-                    {isProcessing ? <Ripple className="text-background/72" size={12} /> : null}
                     {isProcessing
                       ? t('common.processing')
                       : selectedShareTargetCount === 0
                         ? t('source.shareChooseTarget')
                         : t('source.shareSelected', { count: selectedShareTargetCount })}
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             </div>
@@ -533,7 +505,7 @@ export function SkillSourceGovernanceActions({
       ) : null}
       {errorMessage && !mode ? (
         <BodyPortal>
-          <p className="fixed bottom-5 right-5 z-[1000] max-w-[360px] rounded-[8px] border border-[#b04a3a]/25 bg-[var(--surface)] px-3 py-2 text-[12px] text-[#8f3f33] shadow-strong">
+          <p className="fixed bottom-5 right-5 z-[1000] max-w-[360px] rounded-[8px] border border-destructive/25 bg-[var(--surface)] px-3 py-2 text-[12px] text-[var(--destructive-text)] shadow-strong">
             {errorMessage}
           </p>
         </BodyPortal>
