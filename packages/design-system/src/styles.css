@@ -9,6 +9,5 @@
  * instead: `@import "@najafi/design-system/tokens.css";`
  */
 @import "tailwindcss";
-@import "./tokens/base.css";
-@import "./tokens/dark.css";
-@import "./tokens/theme.css";
+@import "./tokens.css";
+@import "./primitives/primitives.css";

@@ -1,0 +1,73 @@
+/* =============================================================================
+   @najafi/design-system · primitives.css
+
+   The ONLY non-inline styles the primitives need: keyframes + two utility
+   classes that can't be expressed as Tailwind token utilities. Import once,
+   after tokens. Everything else is driven by the token vocabulary.
+
+   @import "@najafi/design-system/tokens.css";
+   @import "@najafi/design-system/primitives.css";
+============================================================================= */
+
+/* (shadow-minimal-flat is a token in base.css — Tailwind generates the
+   `shadow-[var(--shadow-minimal-flat)]` utility automatically; no class here.) */
+
+/* --- Ripple loader (signature loader) --- */
+.ripple-loader {
+  color: currentColor;
+  display: inline-block;
+  flex-shrink: 0;
+  position: relative;
+}
+.ripple-loader span {
+  animation: ripple-loader 1.2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+  border: 1.5px solid currentColor;
+  border-radius: 9999px;
+  inset: 0;
+  opacity: 1;
+  position: absolute;
+}
+.ripple-loader span:nth-child(2) {
+  animation-delay: -0.6s;
+}
+@keyframes ripple-loader {
+  0% { opacity: 0; transform: scale(0.18); }
+  4% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+/* --- SpinKit grid spinner (alternate loader) --- */
+.spinner {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 1em;
+  height: 1em;
+  gap: 0.08em;
+}
+.spinner-cube {
+  background-color: currentColor;
+  animation: spinner-grid 1.3s infinite ease-in-out;
+  transform: scale3d(0.5, 0.5, 1);
+}
+.spinner-cube:nth-child(1) { animation-delay: 0.2s; }
+.spinner-cube:nth-child(2) { animation-delay: 0.3s; }
+.spinner-cube:nth-child(3) { animation-delay: 0.4s; }
+.spinner-cube:nth-child(4) { animation-delay: 0.1s; }
+.spinner-cube:nth-child(5) { animation-delay: 0.2s; }
+.spinner-cube:nth-child(6) { animation-delay: 0.3s; }
+.spinner-cube:nth-child(7) { animation-delay: 0s; }
+.spinner-cube:nth-child(8) { animation-delay: 0.1s; }
+.spinner-cube:nth-child(9) { animation-delay: 0.2s; }
+@keyframes spinner-grid {
+  0%, 70%, 100% { transform: scale3d(0.5, 0.5, 1); }
+  35% { transform: scale3d(0, 0, 1); }
+}
+
+/* --- Indeterminate top progress line --- */
+@keyframes shimmer-loading {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.animate-shimmer-loading {
+  animation: shimmer-loading 1.2s linear infinite;
+}

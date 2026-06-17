@@ -4,6 +4,7 @@
    Defines :root / .dark / @theme inline (6 base colors, foreground scale,
    shadows, fonts, z-index, container breakpoints). */
 @import "@najafi/design-system/tokens.css";
+@import "@najafi/design-system/primitives.css";
 @plugin "@tailwindcss/typography";
 
 /* Tell Tailwind where to scan for utility classes */

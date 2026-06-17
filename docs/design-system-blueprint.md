@@ -115,9 +115,9 @@ skill-grove/                      # 根 = workspace root，同时仍是 App（Ta
 | 0 脚手架 | ✅ 完成 | bun workspace + 包骨架，零回归 |
 | 1 Token 包 | ✅ 完成 | token 三件套抽入包，App 改 `@import`，构建逐字节零回归 |
 | 2 AI 契约 | ✅ 完成 | `packages/design-system/AGENTS.md` + 清裸色 |
-| 3 组件原语 | 🟡 样板完成，余量暂停 | `Button` 原语 + 包级 `@source` 消费机制 + 1 处替换验证；其余原语与 ~53 按钮批量替换**暂停** |
+| 3 组件原语 | 🟢 组件库已就位 | Claude Design 定稿的 14 个原语已引入包（Button/IconButton/Ripple/Card/Input/Textarea/Badge/Switch/SegmentedControl/Checkbox/Radio/Select/Table/Dialog）+ `primitives.css`；构建/类型/token 校验全过。App 内批量替换待做 |
 | 4 分发 | ⏸️ 暂不做 | 决定先只在本仓库用，暂不发布 npm |
 
-**下一步（用户主导）：** 先在 **Claude Design** 里确认组件规范（按钮/卡片/输入等的视觉与变体），规范定稿后再回来把它落到 app —— 更新包内原语的 API/样式，然后批量替换 app 里的手写 className。
+**下一步：** 组件规范已在 Claude Design 定稿并引入包。剩余是把 app 里手写的 className 逐文件替换为这些原语（~53 按钮 + 卡片/输入/表格等），每步构建验证 + `bun run dev` 肉眼确认。
 
-**带去 Claude Design 的输入：** `packages/design-system/AGENTS.md`（真实 token 词汇）、`src/tokens/theme.css`（6 基色 + 间距/字体/层级），让设计基于真实约束，落地时无缝。
+**待清理：** App `src/index.css` 仍有 `.ripple-loader`/`.spinner`/`.animate-shimmer-loading` 与包 `primitives.css` 重复定义（内容相同、无害）；待 app 改用包内 `Ripple` 后移除 app 侧定义。

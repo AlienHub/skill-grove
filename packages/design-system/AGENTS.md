@@ -77,12 +77,25 @@ whole point: every screen should look like it came from the same system.
 The raw definitions live in `src/tokens/{base,dark,theme}.css` — read those when
 you need a token that isn't listed here, rather than guessing a name.
 
-## Components
+## Components — use these, don't hand-assemble classNames
 
-UI primitives (`Button`, `Card`, `Input`, `Badge`, `Table`, `Dialog`, `Spinner`, …)
-are being extracted into `src/primitives/` (阶段3). Until they land, compose with
-the token vocabulary above. **Once a primitive exists, use it** — e.g. reach for
-`<Button variant="destructive">`, do not hand-assemble button classNames.
+Finalised in Claude Design against these tokens, in `src/primitives/`. Import from
+`@najafi/design-system` (or `@najafi/design-system/primitives`); wire the CSS once,
+after tokens: `@import "@najafi/design-system/primitives.css"` (ripple/spinner keyframes).
+
+`Button` · `IconButton` · `Ripple` · `Card` · `Input` · `Textarea` · `Badge` ·
+`Switch` · `SegmentedControl` · `Checkbox` · `Radio` · `Select` ·
+`Table`/`THead`/`TH`/`TR`/`TD`/`DefinitionTable` ·
+`Dialog` (+ `.Header`/`.Title`/`.Description`/`.Body`/`.Footer`).
+
+**Active-state rule:** every selection/active state (Switch, SegmentedControl,
+Checkbox, Radio, selected rows) fills with **`foreground`, not `accent`** — the
+same "chosen" language as `Button` solid. `accent` stays reserved for brand
+highlight / focus rings.
+
+Full props + examples live in `src/primitives/README.md`. When a primitive fits,
+use it (`<Button variant="destructive">`, `<Badge tone="success">`) instead of
+hand-assembling classNames.
 
 > Host-app note: the skill-grove app additionally defines utility classes
 > (`.shadow-minimal`, `.shadow-middle`, `.shadow-strong`, `.popover-styled`,

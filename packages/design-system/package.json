@@ -11,7 +11,9 @@
     ".": "./src/index.ts",
     "./styles.css": "./src/styles.css",
     "./tokens.css": "./src/tokens.css",
-    "./tokens/*": "./src/tokens/*"
+    "./tokens/*": "./src/tokens/*",
+    "./primitives": "./src/primitives/index.ts",
+    "./primitives.css": "./src/primitives/primitives.css"
   },
   "files": [
     "src"
