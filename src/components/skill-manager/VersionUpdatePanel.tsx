@@ -4,7 +4,7 @@ import {
   type UpdateInstallStatus,
 } from '../../skill-manager/types'
 import { useAppPreferences } from '../../skill-manager/preferences'
-import { Ripple } from '../ui/Ripple'
+import { Button } from '@najafi/design-system'
 
 function formatCheckedAt(value: string, locale: string) {
   const checkedAt = new Date(value)
@@ -101,35 +101,19 @@ export function VersionUpdatePanel({
           <div className="flex shrink-0 items-center gap-2">
             {updateCheck?.hasUpdate ? (
               <>
-                <button
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={isInstalling}
-                  onClick={onInstallUpdate}
-                  type="button"
-                >
-                  {isInstalling ? <Ripple size={13} /> : null}
+                <Button loading={isInstalling} onClick={onInstallUpdate}>
                   {isInstalling ? t('updates.installing') : t('updates.install')}
-                </button>
+                </Button>
                 {updateCheck.releaseUrl ? (
-                  <button
-                    className="cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5"
-                    onClick={handleOpenRelease}
-                    type="button"
-                  >
+                  <Button variant="outline" onClick={handleOpenRelease}>
                     {t('updates.openRelease')}
-                  </button>
+                  </Button>
                 ) : null}
               </>
             ) : (
-              <button
-                className="inline-flex cursor-pointer items-center gap-2 rounded-[8px] border border-border/60 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
-                disabled={isChecking}
-                onClick={onCheckForUpdates}
-                type="button"
-              >
-                {isChecking ? <Ripple size={13} /> : null}
+              <Button variant="outline" loading={isChecking} onClick={onCheckForUpdates}>
                 {isChecking ? t('common.checking') : t('updates.checkNow')}
-              </button>
+              </Button>
             )}
           </div>
         </div>
