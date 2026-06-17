@@ -12,44 +12,8 @@ import {
   type ThemePreference,
 } from '../../skill-manager/preferences'
 import { normalizeSelectedDirectoryPath } from '../../skill-manager/fileSelection'
-import { Ripple } from '../ui/Ripple'
+import { Button, Input, Select, SegmentedControl } from '@najafi/design-system'
 import { VersionUpdatePanel } from './VersionUpdatePanel'
-
-function SegmentedControl<TValue extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string
-  options: Array<{ label: string; value: TValue }>
-  value: TValue
-  onChange: (value: TValue) => void
-}) {
-  return (
-    <div aria-label={label} className="flex overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface-muted)] p-0.5">
-      {options.map((option) => {
-        const isSelected = option.value === value
-
-        return (
-          <button
-            aria-pressed={isSelected}
-            className={`h-7 cursor-pointer rounded-[7px] px-3 text-[12px] font-medium transition-colors ${
-              isSelected
-                ? 'bg-[var(--surface)] text-foreground shadow-minimal-flat'
-                : 'text-foreground/48 hover:text-foreground'
-            }`}
-            key={option.value}
-            onClick={() => onChange(option.value)}
-            type="button"
-          >
-            {option.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 export function AppSettingsPanel({
   currentVersion,
@@ -187,7 +151,7 @@ export function AppSettingsPanel({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[12px] text-foreground/52">{t('settings.appearanceDescription')}</p>
               <SegmentedControl
-                label={t('settings.appearanceTitle')}
+                aria-label={t('settings.appearanceTitle')}
                 options={themeOptions}
                 value={themePreference}
                 onChange={setThemePreference}
@@ -202,7 +166,7 @@ export function AppSettingsPanel({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[12px] text-foreground/52">{t('settings.languageDescription')}</p>
               <SegmentedControl
-                label={t('settings.languageTitle')}
+                aria-label={t('settings.languageTitle')}
                 options={languageOptions}
                 value={languagePreference}
                 onChange={setLanguagePreference}
@@ -216,9 +180,8 @@ export function AppSettingsPanel({
           <div className="rounded-[8px] border border-border/50 bg-[var(--surface)] px-4 py-3 shadow-minimal-flat">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[12px] text-foreground/52">{t('settings.openTargetDescription')}</p>
-              <select
+              <Select
                 aria-label={t('settings.openTargetTitle')}
-                className="h-8 min-w-[180px] rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-2.5 text-[12px] font-medium text-foreground/72 outline-none focus:border-foreground/18"
                 onChange={(event) => setDefaultOpenTargetId(event.target.value === 'default' ? null : event.target.value)}
                 value={defaultOpenTargetValue}
               >
@@ -227,7 +190,7 @@ export function AppSettingsPanel({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         </section>
@@ -245,9 +208,9 @@ export function AppSettingsPanel({
               {...({ webkitdirectory: 'true' } as Record<string, string>)}
             />
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <input
+              <Input
                 aria-label={t('settings.primaryRepositoryTitle')}
-                className="min-h-9 min-w-0 flex-1 rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-2.5 py-1.5 font-mono text-[12px] text-foreground/88 outline-none focus:border-foreground/18"
+                className="min-w-0 flex-1 font-mono text-foreground/88"
                 onChange={(event) => setDraftPrimaryRepository(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key !== 'Enter' || !isPrimaryRepositoryDirty || isSavingPrimaryRepository) {
@@ -263,38 +226,30 @@ export function AppSettingsPanel({
               />
               <div className="flex shrink-0 flex-wrap gap-2">
                 {isPrimaryRepositoryDirty || isSavingPrimaryRepository ? (
-                  <button
-                    className="flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={isSavingPrimaryRepository || !isPrimaryRepositoryDirty}
+                  <Button
+                    loading={isSavingPrimaryRepository}
+                    disabled={!isPrimaryRepositoryDirty}
                     onClick={() => void onSavePrimaryRepository(draftPrimaryRepository)}
-                    type="button"
                   >
-                    {isSavingPrimaryRepository ? (
-                      <>
-                        <Ripple className="text-background/72" size={12} />
-                        <span>{t('settings.primaryRepositorySaving')}</span>
-                      </>
-                    ) : (
-                      t('settings.primaryRepositorySave')
-                    )}
-                  </button>
+                    {isSavingPrimaryRepository
+                      ? t('settings.primaryRepositorySaving')
+                      : t('settings.primaryRepositorySave')}
+                  </Button>
                 ) : null}
-                <button
-                  className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-3 text-[12px] font-medium text-foreground/72 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+                <Button
+                  variant="outline"
                   disabled={isSavingPrimaryRepository}
                   onClick={handleChoosePrimaryRepositoryFolder}
-                  type="button"
                 >
                   {t('settings.primaryRepositoryChooseFolder')}
-                </button>
-                <button
-                  className="h-8 cursor-pointer rounded-[8px] border border-border/50 bg-[var(--surface-muted)] px-3 text-[12px] font-medium text-foreground/72 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+                </Button>
+                <Button
+                  variant="outline"
                   disabled={isSavingPrimaryRepository}
                   onClick={() => void onSavePrimaryRepository('~/.agents/skills')}
-                  type="button"
                 >
                   {t('settings.primaryRepositoryResetDefault')}
-                </button>
+                </Button>
               </div>
             </div>
             {primaryRepositoryError ? (
