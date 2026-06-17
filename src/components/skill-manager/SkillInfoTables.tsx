@@ -10,21 +10,6 @@ import { SkillSourceActions, SkillSourceRemoveButton } from './SkillSourceAction
 import { BodyPortal } from '../ui/BodyPortal'
 import { Ripple } from '../ui/Ripple'
 
-function ChevronDownIcon({ className, size }: { className?: string, size: number }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      height={size}
-      viewBox="0 0 24 24"
-      width={size}
-    >
-      <path d="m7 10 5 5 5-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-    </svg>
-  )
-}
-
 function formatValue(value: unknown) {
   if (value === null || value === undefined || value === '') {
     return '—'
@@ -111,40 +96,26 @@ export function SkillMetadataTable({ skill }: { skill: Skill }) {
 export function SkillSourceDetails({ skill }: { skill: Skill }) {
   const { t } = useAppPreferences()
   const rows = useMemo(() => buildSourceRows(skill, t), [skill, t])
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   return (
-    <div className="overflow-hidden rounded-[8px] border border-[color-mix(in_srgb,var(--foreground)_9%,transparent)] bg-[var(--surface)] shadow-minimal-flat">
-      <button
-        aria-expanded={isDetailsOpen}
-        className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-foreground/[0.03]"
-        onClick={() => setIsDetailsOpen((value) => !value)}
-        type="button"
-      >
-        <div className="min-w-0">
-          <p className="text-[12px] font-medium text-foreground/70">{t('source.details')}</p>
-          <p className="mt-0.5 text-[11px] text-foreground/40">{t('source.detailsSummary')}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2 text-[11px] font-medium text-foreground/44">
-          <span>{isDetailsOpen ? t('common.collapse') : t('common.expand')}</span>
-          <ChevronDownIcon className={`transition-transform ${isDetailsOpen ? 'rotate-180' : ''}`} size={14} />
-        </div>
-      </button>
-      {isDetailsOpen ? (
-        <dl className="divide-y divide-[color-mix(in_srgb,var(--foreground)_7%,transparent)] border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)]">
-          {rows.map((row) => (
-            <div
-              className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 px-3 py-2 sm:grid-cols-[96px_minmax(0,1fr)]"
-              key={row.label}
-            >
-              <dt className="text-[12px] text-foreground/48">{row.label}</dt>
-              <dd className="min-w-0 whitespace-pre-wrap break-words text-[12px] text-foreground/84">
-                {row.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
+    <div>
+      <div className="mb-3 min-w-0">
+        <p className="text-[12px] font-medium text-foreground/70">{t('source.details')}</p>
+        <p className="mt-0.5 text-[11px] text-foreground/40">{t('source.detailsSummary')}</p>
+      </div>
+      <dl className="divide-y divide-[color-mix(in_srgb,var(--foreground)_7%,transparent)] border-y border-[color-mix(in_srgb,var(--foreground)_8%,transparent)]">
+        {rows.map((row) => (
+          <div
+            className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 py-2 sm:grid-cols-[96px_minmax(0,1fr)]"
+            key={row.label}
+          >
+            <dt className="text-[12px] text-foreground/48">{row.label}</dt>
+            <dd className="min-w-0 whitespace-pre-wrap break-words text-[12px] text-foreground/84">
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   )
 }

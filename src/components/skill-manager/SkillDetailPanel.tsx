@@ -26,21 +26,6 @@ function formatTokenEstimate(tokens: number) {
   return String(tokens)
 }
 
-function ChevronDownIcon({ className, size }: { className?: string, size: number }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      height={size}
-      viewBox="0 0 24 24"
-      width={size}
-    >
-      <path d="m7 10 5 5 5-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-    </svg>
-  )
-}
-
 function getVariantLabel(index: number, t: ReturnType<typeof useAppPreferences>['t']) {
   if (index >= 0 && index < 26) {
     return t('source.variantLabel', { label: String.fromCharCode(65 + index) })
@@ -49,38 +34,22 @@ function getVariantLabel(index: number, t: ReturnType<typeof useAppPreferences>[
   return t('source.variantNumber', { number: index + 1 })
 }
 
-function ExpandableSection({
+function DetailSection({
   children,
-  defaultOpen = false,
   summary,
   title,
 }: {
   children: ReactNode
-  defaultOpen?: boolean
   summary: string
   title: string
 }) {
-  const { t } = useAppPreferences()
-  const [isOpen, setIsOpen] = useState(defaultOpen)
-
   return (
-    <div className="overflow-hidden rounded-[8px] border border-border/50 bg-[var(--surface)] shadow-minimal-flat">
-      <button
-        aria-expanded={isOpen}
-        className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-foreground/[0.03]"
-        onClick={() => setIsOpen((value) => !value)}
-        type="button"
-      >
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-foreground">{title}</p>
-          <p className="mt-1 text-[12px] text-foreground/46">{summary}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2 text-[11px] font-medium text-foreground/44">
-          <span>{isOpen ? t('common.collapse') : t('common.expand')}</span>
-          <ChevronDownIcon className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} size={14} />
-        </div>
-      </button>
-      {isOpen ? <div className="border-t border-border/45 p-4">{children}</div> : null}
+    <div className="py-4">
+      <div className="mb-4 min-w-0">
+        <p className="text-[13px] font-semibold text-foreground">{title}</p>
+        <p className="mt-1 text-[12px] text-foreground/46">{summary}</p>
+      </div>
+      {children}
     </div>
   )
 }
@@ -499,8 +468,8 @@ export function SkillDetailPanel({
             </div>
           ) : null}
           {selectedVariant ? (
-            <div className="mt-5 rounded-[14px] border border-[color-mix(in_srgb,var(--foreground)_10%,transparent)] bg-[color-mix(in_srgb,var(--foreground)_2.5%,var(--surface))] p-4 shadow-minimal-flat">
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] pb-4">
+            <div className="mt-6 border-t border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] pt-5">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/34">
                     {t('detail.sourceLayerEyebrow')}
@@ -531,8 +500,8 @@ export function SkillDetailPanel({
                           <h5 className="text-[13px] font-semibold text-foreground">{t('detail.moreInfo')}</h5>
                           <p className="mt-1 text-[12px] text-foreground/48">{t('detail.moreInfoHint')}</p>
                         </div>
-                        <div className="space-y-3">
-                          <ExpandableSection summary={usageSummary} title={t('detail.usageTitle')}>
+                        <div className="divide-y divide-[color-mix(in_srgb,var(--foreground)_8%,transparent)]">
+                          <DetailSection summary={usageSummary} title={t('detail.usageTitle')}>
                             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                               <div className="inline-flex items-center gap-2">
                                 <p className="text-[11px] text-foreground/42">
@@ -549,12 +518,12 @@ export function SkillDetailPanel({
                                 {usageRefreshing ? t('detail.usageRefreshing') : t('detail.usageRefresh')}
                               </button>
                             </div>
-                            <div className="overflow-hidden rounded-[8px] border border-[color-mix(in_srgb,var(--foreground)_9%,transparent)] bg-[var(--surface)] shadow-minimal-flat">
+                            <div className="border-y border-[color-mix(in_srgb,var(--foreground)_9%,transparent)]">
                               <table className="w-full border-collapse text-left text-[12px]">
                                 <thead>
-                                  <tr className="border-b border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] bg-[var(--surface-muted)] text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground/45">
-                                    <th className="px-3 py-2 font-semibold">{t('detail.usageAgent')}</th>
-                                    <th className="px-3 py-2 text-right font-semibold">{t('detail.usageCount')}</th>
+                                  <tr className="border-b border-[color-mix(in_srgb,var(--foreground)_8%,transparent)] text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground/45">
+                                    <th className="py-2 font-semibold">{t('detail.usageAgent')}</th>
+                                    <th className="py-2 text-right font-semibold">{t('detail.usageCount')}</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -563,22 +532,22 @@ export function SkillDetailPanel({
                                       className="border-b border-[color-mix(in_srgb,var(--foreground)_7%,transparent)] last:border-b-0"
                                       key={usageRow.agentId}
                                     >
-                                      <td className="px-3 py-2 text-foreground/78">{usageRow.agentName}</td>
-                                      <td className="px-3 py-2 text-right tabular-nums text-foreground/88">{usageRow.count}</td>
+                                      <td className="py-2 text-foreground/78">{usageRow.agentName}</td>
+                                      <td className="py-2 text-right tabular-nums text-foreground/88">{usageRow.count}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
                             </div>
-                          </ExpandableSection>
+                          </DetailSection>
 
-                          <ExpandableSection summary={metadataSummary} title={t('detail.metadata')}>
+                          <DetailSection summary={metadataSummary} title={t('detail.metadata')}>
                             <SkillMetadataTable skill={selectedSkill} />
-                          </ExpandableSection>
+                          </DetailSection>
 
-                          <ExpandableSection summary={instructionsSummary} title={t('detail.instructions')}>
+                          <DetailSection summary={instructionsSummary} title={t('detail.instructions')}>
                             <SkillInstructions content={selectedSkill.content} />
-                          </ExpandableSection>
+                          </DetailSection>
                         </div>
                       </div>
                     </div>
