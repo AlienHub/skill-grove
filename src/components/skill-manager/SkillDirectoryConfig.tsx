@@ -9,7 +9,7 @@ import {
 import { useAppPreferences } from '../../skill-manager/preferences'
 import { directoryScanEnabled } from '../../skill-manager/scanDirectories'
 import { type BuiltInDirectoryState, type SourceIcon } from '../../skill-manager/types'
-import { Ripple } from '../ui/Ripple'
+import { Button } from '@najafi/design-system'
 
 export function SkillDirectoryConfig({
   builtInDirectories,
@@ -178,24 +178,12 @@ export function SkillDirectoryConfig({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              className="inline-flex cursor-pointer items-center gap-2 rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-opacity hover:opacity-88 disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={inputDisabled}
-              onClick={handleChooseDirectory}
-              type="button"
-            >
-              {inputDisabled ? <Ripple size={13} /> : null}
+            <Button variant="solid" loading={inputDisabled} onClick={handleChooseDirectory}>
               {chooseButtonLabel}
-            </button>
-            <button
-              className="inline-flex cursor-pointer items-center gap-2 rounded-[8px] border border-border/50 bg-[var(--surface)] px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:text-foreground/35"
-              disabled={inputDisabled}
-              onClick={onRefresh}
-              type="button"
-            >
-              {inputDisabled ? <Ripple size={13} /> : null}
+            </Button>
+            <Button variant="outline" loading={inputDisabled} onClick={onRefresh}>
               {scanButtonLabel}
-            </button>
+            </Button>
           </div>
         </div>
 

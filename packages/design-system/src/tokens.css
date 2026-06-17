@@ -12,3 +12,8 @@
 @import "./tokens/base.css";
 @import "./tokens/dark.css";
 @import "./tokens/theme.css";
+
+/* Make Tailwind scan this package's primitives so their utility classes are
+   generated in any consuming project — no @source needed on the app side.
+   Path resolves relative to this file. */
+@source "./primitives/**/*.{ts,tsx}";
